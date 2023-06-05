@@ -11,7 +11,11 @@
 import axios from 'axios';
 import fs from 'fs';
 
-const apis = [`https://api.openaq.org/v2/latest?limit=100&page=1&offset=0&sort=desc&radius=1000&city=Detroit-Warren-Livonia&order_by=lastUpdated&dumpRaw=false`]
+//I didn't add all the dst sensors but each sensor is the same but with a different token(authtoken under device info in dstech website)
+const apis = [`https://api.openaq.org/v2/latest?limit=100&page=1&offset=0&sort=desc&radius=1000&city=Detroit-Warren-Livonia&order_by=lastUpdated&dumpRaw=false`, 
+              'https://dstech.blynk.cc/external/api/data/get?token=fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA&granularityType=HOURLY&period=HOUR&tzName=America%2FDetroit&sourceType=AVG&output=JSON',
+              'https://dstech.blynk.cc/external/api/data/get?token=zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv&granularityType=HOURLY&period=HOUR&tzName=America%2FDetroit&sourceType=AVG&output=JSON']
+            
 
 //setinterval counter, delete later 
 var num = 0
@@ -38,31 +42,5 @@ setInterval( () => {
       console.log("error :(")}
     );
 //change time to be every 10 minutes? definitely not staying as every 5 minutes 
-}, 15000)
+}, 3000)
 
-// previous version. doesn't do concurrent promises but might be useful 
-// const app = express()
-// setInterval(() => {
-  
-//    // Increment post tracker
-//    num++
-
-//    // Make GET Request on every 2 second
-//    axios.get( 'api link here'
-//     )
-  
-//       // Print data
-//       .then(response => {
-//          console.log(num, ': \n')
-//          console.log(response.data)
-//          var output = num + ': \n' + JSON.stringify(response.data) + '\n' 
-//          fs.appendFile('temp_out.txt', output, function (err) {
-//           if (err) throw err;
-//          });
-         
-//       })
-  
-//       // Print error message if occur
-//       .catch(error => console.log(
-//             'Error to fetch data\n'))
-// }, 15000)
