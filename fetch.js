@@ -11,10 +11,21 @@
 import axios from 'axios';
 import fs from 'fs';
 
-//I didn't add all the dst sensors but each sensor is the same but with a different token(authtoken under device info in dstech website)
+/*
+ I didn't add all the dst sensors but each sensor is the same link with a different token(authtoken under device 
+ info in dstech website).
+
+ The DST links currently pull minute averages from the last hour and pull every single type of data 
+ (including irrelevant stuff like battery voltage); I couldn't figure out how to pull only some types of data at a time.
+ 
+ To change the time frame of data pulled, change period to hour, day, week, month, or three months
+ To change how long the data is averaged over, change granularityType to raw, minute, hourly, or daily
+
+ I couldn't figure out how to get location. 
+*/
 const apis = [`https://api.openaq.org/v2/latest?limit=100&page=1&offset=0&sort=desc&radius=1000&city=Detroit-Warren-Livonia&order_by=lastUpdated&dumpRaw=false`, 
-              'https://dstech.blynk.cc/external/api/data/get?token=fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA&granularityType=HOURLY&period=HOUR&tzName=America%2FDetroit&sourceType=AVG&output=JSON',
-              'https://dstech.blynk.cc/external/api/data/get?token=zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv&granularityType=HOURLY&period=HOUR&tzName=America%2FDetroit&sourceType=AVG&output=JSON']
+              'https://dstech.blynk.cc/external/api/data/get?token=fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA&granularityType=MINUTE&period=HOUR&tzName=America%2FDetroit&sourceType=AVG&output=JSON',
+              'https://dstech.blynk.cc/external/api/data/get?token=zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv&granularityType=MINUTE&period=HOUR&tzName=America%2FDetroit&sourceType=AVG&output=JSON']
             
 
 //setinterval counter, delete later 
