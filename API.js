@@ -3,6 +3,8 @@ import mysql from 'mysql'
 import cors from 'cors'
 import got from 'got';
 
+import {db_insert_with_lat_long} from "./db_commands.js"
+
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -14,6 +16,17 @@ const db = mysql.createConnection({
     password: '',
     database: 'MRAPID',
 });
+
+var data_dict = {
+    "pm10µg/m³" : "pm10_mass_conc",
+    "coppm" : "co_conc",
+    "o3ppm" : "o3_conc",
+    "so2ppm" : "so2_conc ",
+    "pm25µg/m³" : "pm2.5_mass_conc",
+    "no2ppm" : "no2_conc",
+    "noppm" : "no_conc",
+    "noxppm" : "nox_conc",
+}
 
 //OPENAQ
 async function get_loc_and_mes_AQ(){
@@ -139,5 +152,57 @@ async function get_mes_DST(){
 
 })();
 */
+
+(async () => {
+    try {
+
+        //Make API request and create JSON Object
+        const URL = 'https://api.openaq.org/v2/latest?limit=100&page=1&offset=0&sort=desc&radius=1000&city=Detroit-Warren-Livonia&order_by=lastUpdated&dumpRaw=false';
+        const response = await got(URL);
+        const data = JSON.parse(response.body);
+
+        //Loop through all the locations in Detroit
+        let num_locations = data.meta.found;
+
+        for(let i = 0; i < num_locations; i++){
+
+            let lat = data.results[i].coordinates.latitude;
+            let long = data.results[i].coordinates.longitude;
+
+            //add measurements for each location in to table
+            for(let j = 0; j < data.results[i].measurements.length; j++){
+                let val = data.results[i].measurements[j].value;
+                let parameter = data.results[i].measurements[j].parameter;
+                let time = data.results[i].measurements[j].lastUpdated;
+                let unit = data.results[i].measurements[j].unit;
+                
+                //date = time.substring(0,10);
+            
+ 
+                db.query('INSERT INTO measurements (lati,longi,value,parameter,unit) VALUES (?,?,?,?,?)',
+                    [lat,long,val,parameter,unit],
+                    (err,result) => {
+                        if(err){
+                        console.log(err)
+                        }
+                    }
+                )
+                
+                
+
+
+            }
+
+        }
+    
+    } catch (error) {
+        console.log(error.data);
+    }
+
+    
+
+
+})();
+
 
 //ENDPAGE
