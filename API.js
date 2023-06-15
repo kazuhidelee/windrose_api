@@ -9,6 +9,7 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+
 //Create Connection to Database
 const db = mysql.createConnection({
     user: 'root',
@@ -16,6 +17,9 @@ const db = mysql.createConnection({
     password: '',
     database: 'MRAPID',
 });
+
+// GLOBAL VARS
+
 
 /*
 Eventual data dictionary (Its a goddamn Hashmap, I hate Javascript), 
@@ -33,8 +37,14 @@ var data_dict = {
     "noppm" : "no_conc",
     "noxppm" : "nox_conc",
 
-    //CLARIty
+    //CLARITY
+
+    //DST
+
 }
+
+
+// FUNCTIONS START HERE 
 
 //OPENAQ
 async function get_loc_and_mes_AQ(){
@@ -167,7 +177,7 @@ async function CLARITY_db_add(){
 
             let add_mes = [[],[]];
             add_mes.push([data[i].characteristics.relHumid.value,"Humidity","%"])
-            add_mes.push([data[i].characteristics.temperature.value,"Temperature","Celcius"])
+            add_mes.push([data[i].characteristics.temperature.value,"Temperature","Celsius"])
             add_mes.push([data[i].characteristics.no2Conc.calibratedValue,"no2","ppb"])
 
             add_mes.push([data[i].characteristics.pm2_5ConcNum.value,"pm2.5","particles/cm3"])
@@ -204,34 +214,113 @@ async function CLARITY_db_add(){
 
 
 //DST
-async function get_mes_DST(){
+async function devices_connected_DST(device_token){
     try {
-        const URL = 'https://dstech.blynk.cc/external/api/data/get?token=4CxBixmXESEOXLJQECt2P3AvxFwf7-ro&period=DAY&tzName=UTC&sendEvents=true&output=JSON';
+        const URL = 'https://dstech.blynk.cc/external/api/isHardwareConnected?token=' + device_token;
         const response = await got(URL);
         const resp = JSON.parse(response.body);
-
-        //Lat and long for 14th street
-        const lat = 37.1835;
-        const long = -121.7714;
-        const mes = resp.data[0].value;
-
-        db.query('INSERT INTO measurements (lati,longi,pm10) VALUES (?,?,?)',
-              [lat,long,mes],
-              (err,result) => {
-                  if(err){
-                      console.log(err)
-                  }
-              }
-          )
-
+        return resp;
+        
     } 
     catch (error) {
         console.log(error);
     }
 
 
-};
+}
 
+async function fetch_device_measurement_DST(device_token){
+    try {
+       const URL = 'https://dstech.blynk.cc/external/api/data/get?token=' + device_token + '&period=HOUR&tzName=UTC&sendEvents=false&output=JSON';
+       const response = await got(URL);
+       const resp = JSON.parse(response.body);
+       return resp;
+    }
+    catch (error) {
+        console.log(error);
+    }
+
+}
+
+async function DST_db_add(){
+
+    //ARRAY OF DST SENSORS
+    const DST_Sensors = [
+        '4CxBixmXESEOXLJQECt2P3AvxFwf7-ro',
+        '6-bKPRHd9-nnJIyc42pCD2M_MbRnleXq',
+        'WeBVmyQ49aMH6BbdH25B1wKleSsigyit',
+        'MoKpBWWsEm7hfAaLC_yKOwR1Wh3woMvw',
+        'PDPpH0pXXIhzOBPqIks30OoNPFFZi1fL',
+        'i6bTtM_KrbCGTq7Eg06ZXtopUOUNrHJb',
+        'fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA',
+        'iOYFmSXb3fgXlNIGfEnCVD76vVJ1Dcs3',
+        'zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv',
+        'Aw_YN3AuW_ek8UEk8GDYEc8XI3TRwH7O',
+    ] 
+    const DST_Sensor_Locations = [
+        ['37.1835','-121.7714'],
+        ['39.0469','-77.4903'],
+        ['39.0469','-77.4903'],
+        ['37.1835','-121.7714'],
+        ['37.1835','-121.7714'],
+        ['42.3068','-83.7059'],
+        ['34.0544','-118.244'],
+        ['39.0469','-77.4903'],
+        ['42.3068','-83.7059'],
+        ['42.3068','-83.7059'],
+    ]
+
+    //all parameters we will pull from DST (param to unit HASHMAP)
+    const DST_params = {
+        'Black Carbon': 'ug/m3',                  
+        'GAS1':         'ppm', //What is GAS 1?          
+        'GAS2':         'ppm', //What is GAS 2?                 
+        'PM1':          'ug/m3',                 
+        'PM2_5':        'ug/m3',                  
+        'PM4':          'ug/m3',                 
+        'PM10':         'ug/m3',                 
+        'Ambient Relative Humidity': '%',    
+        'Ambient Temperature':      'Celsius',                    
+    }
+
+    for(let i = 0; i < DST_Sensors.length ; i ++){
+        devices_connected_DST(DST_Sensors[i]).then((response) => {
+            if(response){ //if the device is connected
+                
+                fetch_device_measurement_DST(DST_Sensors[i]).then((response) => { //fetch the measurements from the sensor in the last hour
+                    
+                    let lat =  DST_Sensor_Locations[i][0];
+                    let long = DST_Sensor_Locations[i][1];
+
+                    for(let j = 0; j < response.data.length; j++){ //iterate through all recorded measurements
+
+                        if(response.data[j].data_stream_name in DST_params){ // if the parameter is going inside the database (see DST_params)
+
+                            let value = response.data[j].value;
+                            let parameter = response.data[j].data_stream_name
+                            let unit = DST_params[response.data[j].data_stream_name]
+    
+                            //console.log(value + ' - ' + parameter + ' - ' + unit + ' - ' + lat + ' - ' + long);
+
+                            db.query('INSERT INTO measurements (lati,longi,value,parameter,unit) VALUES (?,?,?,?,?)',
+                            [lat,long,value,parameter,unit],
+                            (err,result) => {
+                                if(err){
+                                console.log(err)
+                                }
+                            }
+                            )
+
+                        } //ENDIF
+
+                    } //END j loop
+
+                }); //END fetch_device_measurement_DST
+
+            } //ENDIF
+        });
+    }
+}
 //TSI
 /*
 (async () => {
@@ -263,8 +352,9 @@ async function get_mes_DST(){
 })();
 */
 
-
-OPENAQ_db_add();
-CLARITY_db_add();
+//get_mes_DST();
+DST_db_add().then((response) => {
+    console.log("DST data added successfully");
+});
 
 //ENDPAGE
