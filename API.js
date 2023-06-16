@@ -40,7 +40,6 @@ var data_dict = {
     //CLARITY
 
     //DST
-
 }
 
 
@@ -299,6 +298,9 @@ async function DST_db_add(){
                             let value = response.data[j].value;
                             let parameter = response.data[j].data_stream_name
                             let unit = DST_params[response.data[j].data_stream_name]
+
+                            parameter == "GAS1" ? parameter = "CO" : parameter; //Catch for GAS1
+                            parameter == "GAS2" ? parameter = "NO2" : parameter; //Catch for GAS2
     
                             //console.log(value + ' - ' + parameter + ' - ' + unit + ' - ' + lat + ' - ' + long);
 
@@ -321,8 +323,9 @@ async function DST_db_add(){
         });
     }
 }
+
+
 //TSI
-/*
 (async () => {
 
     try {
@@ -350,11 +353,7 @@ async function DST_db_add(){
     }
 
 })();
-*/
 
-//get_mes_DST();
-DST_db_add().then((response) => {
-    console.log("DST data added successfully");
-});
+
 
 //ENDPAGE
