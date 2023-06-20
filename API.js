@@ -3,7 +3,7 @@ import mysql from 'mysql'
 import cors from 'cors'
 import got from 'got';
 
-import {db_insert_with_lat_long} from "./db_commands.js"
+//import {db_insert_with_lat_long} from "./db_commands.js"
 
 const app = express()
 app.use(cors())
@@ -12,9 +12,9 @@ app.use(express.json())
 
 //Create Connection to Database
 const db = mysql.createConnection({
-    user: 'root',
-    host: 'localhost',
-    password: '',
+    user: 'admin',
+    host: 'mrapid-db-instance.csicgkuu36em.us-east-1.rds.amazonaws.com',
+    password: 'mrapid123',
     database: 'MRAPID',
 });
 
@@ -326,6 +326,7 @@ async function DST_db_add(){
 
 
 //TSI
+/*
 (async () => {
 
     try {
@@ -354,6 +355,6 @@ async function DST_db_add(){
 
 })();
 
-
-
+*/
+OPENAQ_db_add();
 //ENDPAGE
