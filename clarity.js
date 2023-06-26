@@ -1,15 +1,15 @@
-/* List of public monitors, waiting for access permissions 
- * Name: Datasource ID
+/* List of public monitors
+ * Name: Device Code
  * ------------------------
- * DP4TH: DEKVS8386
- * Military Park: DJNUW3797
- * Detroit-SW: DCPXR1876
- * Trinity: DJIFY1059
- * NMH48217: DICXP6694
+ * DP4TH: R7QRSH6R
+ * Military Park: RNVWJ1Q2
+ * Detroit-SW: R53ZKFL9
+ * Trinity: RRM5KZQT
+ * NMH48217: R532W7DP
  */
 
 /* List of our 8 Clarity monitors
- * Device ID
+ * Device Code
  * ----------
  * AT9BM6VV
  * ALQ1TJN6
@@ -21,11 +21,11 @@
  * A5GGSW99
  */
 
-// fetch data from 4 of our Clarity monitors, print example data to terminal
+// fetch data from 2 of our Clarity monitors, print example data to terminal
 (async () => {
     try {
-        // in URL, use parameter "code" for Device ID and "datasourceId" for Datasource ID
-        const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6,AXPPQ0QF,AW2JHDG8&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
+        const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
+        // Using Batterman's API key below. Ecology Center's is '5UbTU5080oq7M0GZjMPUFIq0jOIAoIO9j7CTjzAA'. Either should work
         const APIkey = 'WIISszA2VDYFNB37ZdpkHoX07UHIvPSBkxc2npSR';
 
         const res = await fetch(URL, {
@@ -45,7 +45,6 @@
         console.log('Location longitude: ' + data[0].location.coordinates[0]);
         console.log('Location latitude: ' + data[0].location.coordinates[1]);
         console.log('PM 2.5 Concentration (microgram/m3): ' + data[0].characteristics.pm2_5ConcMass.value);
-
 
     } catch (error) {
         console.log(error.data);
