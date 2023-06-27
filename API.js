@@ -32,6 +32,7 @@ app.get('/measurements', async (req, res) => {
         const request = new mssql.Request();
         const result = await request.query('SELECT * FROM measurements');
         res.status(200).json(result.recordset);
+
     } catch(error) {
         console.error('Error querying the database: ', error);
         res.status(500).json({message: 'Error querying the database'});
