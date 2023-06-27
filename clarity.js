@@ -24,7 +24,7 @@
 // fetch data from 2 of our Clarity monitors, print example data to terminal
 (async () => {
     try {
-        const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
+        const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6,AXPPQ0QF,AW2JHDG8,AK9VQ3KV,AHKQKKTX,A6X7ZXF0,A5GGSW99&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
         // Using Batterman's API key below. Ecology Center's is '5UbTU5080oq7M0GZjMPUFIq0jOIAoIO9j7CTjzAA'. Either should work
         const APIkey = 'WIISszA2VDYFNB37ZdpkHoX07UHIvPSBkxc2npSR';
 
