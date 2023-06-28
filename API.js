@@ -44,25 +44,28 @@ app.get("/", async (req, res) => {
 
 // For each monitor, get most recent value of a specific pollutant
 app.get("/:pollutant", async (req, res) => {
-    // TODO: test this most recent func
-    const recents = "SELECT lati, MAX(time) latest_time FROM measurements WHERE parameter = ? GROUP BY lati";
+    // TODO: also need to not hardcode the unit bc not all are µg/m³
+    const recents = "SELECT sensor_name, MAX(time) latest_time FROM measurements WHERE parameter = ? AND unit = 'µg/m³' GROUP BY sensor_name";
     const query = "SELECT t.* FROM measurements t ";
     query += "JOIN ( " + recents + " ) recents ";
-    query += "ON t.lati = recents.lati AND t.time = recents.latest_time WHERE t.parameter = ?";
+    query += "ON t.sensor_name = recents.sensor_name AND t.time = recents.latest_time";
+    query += "WHERE t.parameter = ? AND unit = 'µg/m³'";
     
     /* SQL query for getting most recent measurements for a specific parameter (ex: PM 2.5)
         SELECT      t.*
         FROM       	measurements t
         JOIN        (
-            SELECT      lati,
+            SELECT      sensor_name,
                         MAX(time) latest_time
             FROM        measurements
-            WHERE		parameter = 'pm25'
-            GROUP BY    lati
+            WHERE		parameter = 'pm2.5'
+            AND		    unit = 'µg/m³'
+            GROUP BY    sensor_name
                     ) recents
-        ON          t.lati = recents.lati
+        ON          t.sensor_name = recents.sensor_name
         AND         t.time = recents.latest_time
-        WHERE		t.parameter = 'pm25'
+        WHERE		t.parameter = 'pm2.5'
+        AND		    unit = 'µg/m³'
     */
 
     try{
