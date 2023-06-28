@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql';
-// import Feature, FeatureCollection from 'geoscript/feature';
-// import Point from 'geoscript/geom';
+//import Feature, FeatureCollection from 'geoscript/feature';
+//import Point from 'geoscript/geom';
 
 const app = express();
 app.use(cors());
@@ -40,6 +40,18 @@ const pool = mysql.createPool({
 // Test response
 app.get("/", async (req, res) => {
     res.json({status: "Ready! :)"});
+
+    /*
+    // Testing Feature Collection response
+    var collection = FeatureCollection({
+        features: [
+            Feature({properties: {loc: Point([1, 2])}}),
+            Feature({properties: {loc: Point([1, 2])}})
+        ]
+    });
+    
+    res.json(collection);
+    */
 });
 
 // For each monitor, get most recent value of a specific pollutant
@@ -82,10 +94,10 @@ app.get("/:pollutant", async (req, res) => {
             } else{
                 // TODO: get results into the feature collection format
                 var collection = FeatureCollection({
-                    features: function() {
+                    features: function*() {
                         for (var i = 0; i < 5; ++i) {
                             yield Feature({
-                                geometry: Point([results[i].lati, results[i].longi]),
+                                geometry: Point([results[i].latitude, results[i].longitude]),
                                 properties: {
                                     pollutant: 'value',
                                 }
