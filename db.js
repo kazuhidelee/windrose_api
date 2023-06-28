@@ -43,7 +43,7 @@ app.use(express.json())
         'TSI' : 'BLUESKY TSI',
     }
 
-    //ALL SENSORS BY THEIR RESPECTIVE API IDS (API ID : [Sensor_name,Sensor_id])
+    // ALL SENSORS BY THEIR RESPECTIVE API IDS (API ID : [Sensor_name,Sensor_id])
     const sensor_locations = {
 
         //OPENAQ (0-99)
@@ -93,26 +93,75 @@ app.use(express.json())
 
     }
 
-    /*
-    Eventual data dictionary (Its a goddamn Hashmap, I hate Javascript), 
-    probably to map the different units/paramters from the different API's
-    to one unit/parameter that will go into the database.
-    */
-    var data_dict = {
-        //OPENAQ
-        "pm10µg/m³" : "pm10_mass_conc",
-        "coppm" : "co_conc",
-        "o3ppm" : "o3_conc",
-        "so2ppm" : "so2_conc ",
-        "pm25µg/m³" : "pm2.5_mass_conc",
-        "no2ppm" : "no2_conc",
-        "noppm" : "no_conc",
-        "noxppm" : "nox_conc",
+    // PARAMETERS FOR API TO CONSISTENT PARAMETER IN DATABASE (API parameter name : db parameter name)
+    var paramater_conversions = {
 
-        //CLARITY
+        //OPENAQ
+        "pm10" : "pm10",
+        "pm25" : "pm2.5",
+        "o3" : "O3",
+        "co" : "CO",
+        "no2" : "NO2",
+        "so2" : "SO2",
+        "bc" : "Black C",
+        "co2" : "CO2",
+        "pm1" : "pm1",
+        "wind_direction" : "Wind_direction",
+        "no" : "NO",
+        "rh" : "Relative Humidity",
+        "nox" : "NOX",
+        "ch4" : "CH4",
+        "pn" : "Particle Number",
+        "o3" : "O3",
+        "ufp" : "Ultra-fine-particles",
+        "wind_speed" : "Wind Speed",
+        "pm" : "PM",
+        "ambient_temp" : "Ambient Temperature",
+        "pressure" : "Pressure",
+        "pm25-old" : "pm2.5",
+        "relativehumidity" : "Relative Humidity",
+        "temperature" : "Temperature",
+        "humidity" : "Humidity",
+        "ozone" : "O3",
+        "pm4" : "pm4",
+        "so4" : "SO4",
+
+        //CLARITY (already done in db add function)
 
         //DST
+        "Black Carbon" : "Black C",
+        "GAS1" : "CO",
+        "GAS2" : "NO2",
+        "PM1" : "pm1",
+        "PM2_5" : "pm2.5",
+        "PM4" : "pm4",
+        "PM10" : "pm10",
+        "Ambient Relative Humidity" : "Relative Humidity",
+        "Ambient Temperature" : "Temperature",
+
+        //TSI
+        "PM 1.0" : "pm1",
+        "PM 2.5" : "pm2.5",
+        "PM 4.0" : "pm4",
+        "PM 10" : "pm10",
+        "NC 0.5" : "pm0.5",
+        "NC 1.0" : "pm1",
+        "NC 2.5" : "pm2.5",
+        "NC 4.0" : "pm4",
+        "NC 10" : "pm10",
+        "Typical Particle Size" : "Particle Size",
+        "Temperature" : "Temperature",
+        "Relative Humidity" : "Relative Humidity",
+        "Carbon Dioxide" : "CO2",
+        "Carbon Monoxide" : "CO",
+        "Barometric Pressure" : "Pressure",
+        "Ozone" : "O3",
+        "Nitrogen Dioxide" : "NO2",
+        "Sulphur Dioxide" : "SO2",
+        "PM 2.5 AQI" : "PM2.5 AQI",
+        "PM 10 AQI" : "PM10 AQI",
     }
+
 
 // GLOBAL VARS
 
@@ -132,7 +181,7 @@ app.use(express.json())
 
                 let num_locations = data.meta.found;
 
-                console.log(data)
+                //console.log(data)
                 
                 for(let i = 0; i < num_locations; i++){
 
@@ -143,9 +192,10 @@ app.use(express.json())
                     for(let j = 0; j < data.results[i].measurements.length; j++){
 
                         let val = data.results[i].measurements[j].value;
-                        let parameter = data.results[i].measurements[j].parameter;
+                        let parameter = paramater_conversions[data.results[i].measurements[j].parameter];
                         let time = data.results[i].measurements[j].lastUpdated;
                         let unit = data.results[i].measurements[j].unit;
+                        
                         
                         time = time.substr(0,10) + " " + time.substr(11).substr(0,8)
 
@@ -164,11 +214,6 @@ app.use(express.json())
             
                 }
 
-                db.end(function(error){
-                    if(error){
-                        console.log(error);
-                    }
-                })
             
             } catch (error) {
                 console.log(error.data);
@@ -247,20 +292,20 @@ app.use(express.json())
                     const sensor_name = sensor_locations[code][0];
                     let time = data[i].time;
                     time = time.substr(0,10) + " " + time.substr(11).substr(0,8);
-                    console.log(time);
+                    //console.log(time);
 
                     let add_mes = [[],[]];
                     add_mes.push([data[i].characteristics.relHumid.value,"Humidity","%"])
                     add_mes.push([data[i].characteristics.temperature.value,"Temperature","Celsius"])
-                    add_mes.push([data[i].characteristics.no2Conc.calibratedValue,"no2","ppb"])
+                    add_mes.push([data[i].characteristics.no2Conc.calibratedValue,"NO2","ppb"])
 
-                    add_mes.push([data[i].characteristics.pm2_5ConcNum.value,"pm2.5","particles/cm3"])
-                    add_mes.push([data[i].characteristics.pm2_5ConcMass.calibratedValue,"pm2.5","ug/m3"])
-                    add_mes.push([data[i].characteristics.pm1ConcNum.value,"pm1","particles/cm3"])
+                    add_mes.push([data[i].characteristics.pm2_5ConcNum.value,"pm2.5","particles/cm³"])
+                    add_mes.push([data[i].characteristics.pm2_5ConcMass.calibratedValue,"pm2.5","µg/m³"])
+                    add_mes.push([data[i].characteristics.pm1ConcNum.value,"pm1","particles/cm³"])
 
-                    add_mes.push([data[i].characteristics.pm1ConcMass.value,"pm1","ug/m3"])
-                    add_mes.push([data[i].characteristics.pm10ConcNum.value,"pm10","particles/cm3"])
-                    add_mes.push([data[i].characteristics.pm10ConcMass.calibratedValue,"pm10","ug/m3"])
+                    add_mes.push([data[i].characteristics.pm1ConcMass.value,"pm1","µg/m³"])
+                    add_mes.push([data[i].characteristics.pm10ConcNum.value,"pm10","particles/cm³"])
+                    add_mes.push([data[i].characteristics.pm10ConcMass.calibratedValue,"pm10","µg/m³"])
 
                     for(let j = 0; j < add_mes.length; j++){
 
@@ -389,13 +434,10 @@ app.use(express.json())
                                     time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds();
 
                                     let value = response.data[j].value;
-                                    let parameter = response.data[j].data_stream_name
+                                    let parameter = paramater_conversions[response.data[j].data_stream_name];
                                     let unit = DST_params[response.data[j].data_stream_name]
 
-                                    parameter == "GAS1" ? parameter = "CO" : parameter; //Catch for GAS1
-                                    parameter == "GAS2" ? parameter = "NO2" : parameter; //Catch for GAS2
-            
-                                    //console.log(value + ' - ' + parameter + ' - ' + unit + ' - ' + lat + ' - ' + long);
+                                    unit = unit == ("ug/m3") ? unit = "µg/m³" : unit; //catch for ug/m3 to using mu and m^3
 
                                     db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
                                         [value,parameter,unit,time,sensor_name],
@@ -477,10 +519,16 @@ app.use(express.json())
                             
                             for(let k = 0; k < json[i].sensors[j].measurements.length;k++){
                                 const value = json[i].sensors[j].measurements[k].data.value;
-                                const parameter = json[i].sensors[j].measurements[k].name;
-                                const unit = json[i].sensors[j].measurements[k].unit;
+                                const parameter = paramater_conversions[json[i].sensors[j].measurements[k].name];
+                                let unit = json[i].sensors[j].measurements[k].unit;
                                 let time = json[i].sensors[j].measurements[k].data.timestamp;
                                 time = time.substr(0,10) + " " + time.substr(11).substr(0,8)
+
+                                //Catches for Unit 
+                                unit = (unit == "#/cm³") ? unit = "particles/cm³" : unit; 
+                                unit = (unit == "°C") ? unit = "Celsius" : unit;
+                                unit = (unit == "inHg") ? unit = "mmHg" : unit;
+                                //Catches for Unit 
                                 
                                 
                                 db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
