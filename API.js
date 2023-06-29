@@ -1,8 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql';
-//import Feature, FeatureCollection from 'geoscript/feature';
-//import Point from 'geoscript/geom';
 
 const app = express();
 app.use(cors());
@@ -31,33 +29,21 @@ mysql.createConnection(config, err => {
 
 const pool = mysql.createPool({
     user: 'admin',
+    host: 'mrapid-db-instance.csicgkuu36em.us-east-1.rds.amazonaws.com',
     password: 'mrapid123',
-    database: 'MRAPID',
-    socketPath: 'mrapid-db-instance.csicgkuu36em.us-east-1.rds.amazonaws.com' // wtf is this
+    database: 'MRAPID'
 })
 
 // Routes
-// Test response
+// Home, test response
 app.get("/", async (req, res) => {
     res.json({status: "Ready! :)"});
-
-    /*
-    // Testing Feature Collection response
-    var collection = FeatureCollection({
-        features: [
-            Feature({properties: {loc: Point([1, 2])}}),
-            Feature({properties: {loc: Point([1, 2])}})
-        ]
-    });
-    
-    res.json(collection);
-    */
 });
 
 // For each monitor, get most recent value of a specific pollutant
 app.get("/:pollutant", async (req, res) => {
-    // TODO: also need to not hardcode the unit bc not all are µg/m³
-    const query = "SELECT value, parameter, unit, time, latitude, longitude FROM measurements t ";
+    // TODO: need to not hardcode the unit bc not all are µg/m³
+    var query = "SELECT value, parameter, unit, time, latitude, longitude FROM measurements t ";
     const join_lat_long = "INNER JOIN sensors ON t.sensor_name = sensors.sensor_name ";
     query += join_lat_long;
 
@@ -92,21 +78,26 @@ app.get("/:pollutant", async (req, res) => {
             if(!results[0]){ // No results
                 res.json({ status: "Not found" });
             } else{
-                // TODO: get results into the feature collection format
-                var collection = FeatureCollection({
-                    features: function*() {
-                        for (var i = 0; i < 5; ++i) {
-                            yield Feature({
-                                geometry: Point([results[i].latitude, results[i].longitude]),
-                                properties: {
-                                    pollutant: 'value',
-                                }
-                            });
+                var geojson = {};
+                geojson['type'] = 'FeatureCollection';
+                geojson['features'] = [];
+                
+                for (var i = 0; i < results.length; ++i) {
+                    var param = results[i].parameter;
+                    var newFeature = {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [results[i].latitude, results[i].longitude]
+                        },
+                        "properties": {
+                            param: results[i].value
                         }
                     }
-                });
-    
-                res.status(200).json(collection);
+                    geojson['features'].push(newFeature);
+                }
+
+                res.status(200).json(geojson);
             }
         });
     } catch(error){
