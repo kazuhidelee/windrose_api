@@ -42,18 +42,23 @@ app.get("/", async (req, res) => {
 
 // For each monitor, get most recent value of a specific pollutant
 app.get("/:pollutant", async (req, res) => {
-    // TODO: need to not hardcode the unit bc not all are µg/m³
+    // Define measurement unit based on requested pollutant
+    const unit = "";
+    if(req.params.pollutant == "pm1" || req.params.pollutant == "pm2.5" || req.params.pollutant == "pm10") unit = "µg/m³";
+    else unit = "ppm";
+
+    // SQL command to get most recent measurements for a specific parameter
     var query = "SELECT value, parameter, unit, time, latitude, longitude FROM measurements t ";
     const join_lat_long = "INNER JOIN sensors ON t.sensor_name = sensors.sensor_name ";
     query += join_lat_long;
 
-    const recents = "SELECT sensor_name, MAX(time) latest_time FROM measurements WHERE parameter = ? AND unit = 'µg/m³' GROUP BY sensor_name ";
+    const recents = "SELECT sensor_name, MAX(time) latest_time FROM measurements WHERE parameter = ? AND unit = '" + unit + "' GROUP BY sensor_name ";
     query += "JOIN ( " + recents + " ) recents ";
 
     query += "ON t.sensor_name = recents.sensor_name AND t.time = recents.latest_time ";
-    query += "WHERE t.parameter = ? AND unit = 'µg/m³'";
+    query = query + "WHERE t.parameter = ? AND unit = '" + unit + "'";
     
-    /* SQL query for getting most recent measurements for a specific parameter (ex: PM 2.5)
+    /* SQL query nicely formatted, example using PM 2.5
         SELECT 
             value, parameter, unit, time, latitude, longitude
         FROM
@@ -78,6 +83,7 @@ app.get("/:pollutant", async (req, res) => {
             if(!results[0]){ // No results
                 res.json({ status: "Not found" });
             } else{
+                // Return measurements in a Feature Collection
                 var geojson = {};
                 geojson['type'] = 'FeatureCollection';
                 geojson['features'] = [];
