@@ -272,7 +272,7 @@ app.use(express.json())
             try {
                 // in URL, use parameter "code" for Device ID and "datasourceId" for Datasource ID
                 //const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6,AXPPQ0QF,AW2JHDG8&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
-                const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6,AXPPQ0QF,AW2JHDG8,AK9VQ3KV,AHKQKKTX,A6X7ZXF0,A5GGSW99&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
+                const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6,AXPPQ0QF,AW2JHDG8,AK9VQ3KV,AHKQKKTX,A6X7ZXF0,A5GGSW99&startTime=2022-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z&outputFrequency=hour';
                 //const URL = 'https://clarity-data-api.clarity.io/v1/devices';
                 const APIkey = 'WIISszA2VDYFNB37ZdpkHoX07UHIvPSBkxc2npSR';
 
@@ -492,8 +492,6 @@ app.use(express.json())
         //add measurements to database
         async function TSI_db_add(){
 
-            //For devices: 
-
             const client_id = "PKJqYB0yeGrZu9RE4JJaBaVZzC0OLHDe5nDZ9m7T0mc0tG2a"
             const secret = "XZZDwi2ElaOTldFTo4NwYJdfh2Z21R8hFwf9uqGHFzWNE52yCpeYx263v5rNFMSs"
             fetch("https://api-prd.tsilink.com/api/v3/external/oauth/client_credential/accesstoken?grant_type=client_credentials", {
@@ -603,9 +601,61 @@ app.use(express.json())
     
     //TSI
 
+    //Averages
+
+        //calculate hourly means and add to hourly_mean table
+        async function hourly_mean_add(){
+
+            db.query('SELECT * FROM `measurements` ORDER BY parameter ASC, time ASC',
+                (err,result) => {
+                    if(err){
+                        console.log(err)
+                    }
+
+
+                for(let i = 0; i < result.length; i++){
+
+                    let source = result[i].sensor_name.substr(0,3);
+
+                    let value = result[i].value;
+                    let parameter = result[i].parameter;
+                    let unit = result[i].unit;
+                    let time = result[i].time;
+                    let sensor_name = result[i].sensor_name;
+
+                    if(source == 'OAQ' || source == 'CLA'){
+
+                        db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
+                                [value,parameter,unit,time,sensor_name],
+                                (err,result) => {
+                                    if(err){
+                                        console.log(err)
+                                    }
+                                }
+                        )
+
+                    }
+                    else if(source == 'DST'){
+                        
+                    }
+                    
+                }
+
+            });
+
+            
+        };
+
+    //Averages
+
 //FUNCTIONS END HERE 
 
-TSI_db_add();
+//OPENAQ_db_add();
+//CLARITY_db_add();
+//DST_db_add();
+//TSI_db_add();
+hourly_mean_add();
+
 /*
 db.end(function(error){
     if(error){
