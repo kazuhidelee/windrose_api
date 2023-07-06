@@ -13,23 +13,23 @@ app.use(express.json())
 
     // AWS
     /*
+    */
     const db = mysql.createConnection({
-        user: 'admin',
-        host: 'mrapid-db-instance.csicgkuu36em.us-east-1.rds.amazonaws.com',
+        user: 'root',
+        host: '34.171.19.205',
         password: 'mrapid123',
         database: 'MRAPID',
     });
-    */
 
     // MYSQL PHP ADMIN
     /*
-    */
     const db = mysql.createConnection({
         user: 'root',
         host: 'localhost',
         password: '',
         database: 'MRAPID',
     });
+    */
 
 //Create Connection to Database
 
@@ -784,6 +784,16 @@ app.use(express.json())
             });
         };
 
+        async function select_measurements(){
+            db.query('SELECT * FROM `measurements`',
+                (err,result) => {
+                    if(err){
+                        console.log(err)
+                    }
+                    console.log(result);
+            });
+        };
+
     //Helpers
 
 //FUNCTIONS END HERE 
@@ -795,8 +805,8 @@ app.use(express.json())
 //hourly_mean_add();
 //daily_mean_add();
 //lat_and_long_out();
-add_sensors();
-
+//add_sensors();
+select_measurements();
 /*
 db.end(function(error){
     if(error){
