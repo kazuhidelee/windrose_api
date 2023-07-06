@@ -44,52 +44,55 @@ app.use(express.json())
     }
 
     // ALL SENSORS BY THEIR RESPECTIVE API IDS (API ID : [Sensor_name,Sensor_id])
+        //sensor ID = (2 digit AQS State ID) + ( 3 digit AQS County ID) + (4 digit sensor ID) + (1 letter for source) = 10 digits
+        //sensor ID = XX XXX XXXX X = XXXXXXXXXX
+        // O = OAQ, C = CLA, D = DST, T = TSI
     const sensor_locations = {
 
         //OPENAQ (0-99)
-        'ALLEN PARK' : ['OAQ : ALLEN PARK',0],
-        'PORT HURON' : ['OAQ : PORT HURON',1],
-        'NMH48217' : ['OAQ : NMH48217',2],
-        'WARREN' : ['OAQ : WARREN',3],
-        'NEW HAVEN' : ['OAQ : NEW HAVEN',4],
-        'DEARBORN' : ['OAQ : DEARBORN',5],
-        'OAK PARK' : ['OAQ : OAK PARK',6],
-        'DETROIT - E 7 MILE' : ['OAQ : DETROIT - E 7 MILE',7],
-        'DETROIT-SW' : ['OAQ : DETROIT-SW',8],
-        'ELIZA HOWELL-NR' : ['OAQ : ELIZA HOWELL-NR',9],
-        'TRINITY' : ['OAQ : TRINITY',10],
-        'DP4TH' : ['OAQ : DP4TH',11],
-        'MILITARY PARK' : ['OAQ : MILITARY PARK',12],
+        'ALLEN PARK' : ['OAQ : ALLEN PARK',"261630000O"],
+        'PORT HURON' : ['OAQ : PORT HURON',"261470001O"],
+        'NMH48217' : ['OAQ : NMH48217',"261630002O"],
+        'WARREN' : ['OAQ : WARREN',"260990003O"],
+        'NEW HAVEN' : ['OAQ : NEW HAVEN',"260990004O"],
+        'DEARBORN' : ['OAQ : DEARBORN',"261630005O"],
+        'OAK PARK' : ['OAQ : OAK PARK',"261250006O"],
+        'DETROIT - E 7 MILE' : ['OAQ : DETROIT - E 7 MILE',"261630007O"],
+        'DETROIT-SW' : ['OAQ : DETROIT-SW',"261630008O"],
+        'ELIZA HOWELL-NR' : ['OAQ : ELIZA HOWELL-NR',"261630009O"],
+        'TRINITY' : ['OAQ : TRINITY',"261630010O"],
+        'DP4TH' : ['OAQ : DP4TH',"261630011O"],
+        'MILITARY PARK' : ['OAQ : MILITARY PARK',"261630012O"],
 
         //CLARITY (100-199)
-        'AHKQKKTX' : ['CLA : AHKQKKTX',100],
-        'AK9VQ3KV' : ['CLA : AK9VQ3KV',101],
-        'AT9BM6VV' : ['CLA : EC3',102],
-        'AXPPQ0QF' : ['CLA : EC2',103],
-        'AW2JHDG8' : ['CLA : EC1',104],
-        'A6X7ZXF0' : ['CLA : EC4',105],
-        'ALQ1TJN6' : ['CLA : EC5',106],
-        'A5GGSW99' : ['CLA : EC6',107],
+        'AHKQKKTX' : ['CLA : AHKQKKTX',"261630000C"],
+        'AK9VQ3KV' : ['CLA : AK9VQ3KV',"380610001C"], // NORTH DAKOTA ?
+        'AT9BM6VV' : ['CLA : EC3',"261630002C"],
+        'AXPPQ0QF' : ['CLA : EC2',"261630003C"],
+        'AW2JHDG8' : ['CLA : EC1',"261630004C"],
+        'A6X7ZXF0' : ['CLA : EC4',"261250005C"],
+        'ALQ1TJN6' : ['CLA : EC5',"261630006C"],
+        'A5GGSW99' : ['CLA : EC6',"261630007C"],
 
         //DST (200-299)
-        '4CxBixmXESEOXLJQECt2P3AvxFwf7-ro' : ['DST : 101 2236 14TH STREET',200],
-        '6-bKPRHd9-nnJIyc42pCD2M_MbRnleXq' : ['DST : 102 TRINITY',201],
-        'WeBVmyQ49aMH6BbdH25B1wKleSsigyit' : ['DST : 103 TRINITY',202],
-        'MoKpBWWsEm7hfAaLC_yKOwR1Wh3woMvw' : ['DST : 93 2236 14TH STREET',203],
-        'PDPpH0pXXIhzOBPqIks30OoNPFFZi1fL' : ['DST : RECOVERY PARK',204],
-        'i6bTtM_KrbCGTq7Eg06ZXtopUOUNrHJb' : ['DST : OA 95',205],
-        'fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA' : ['DST : 96 ECN',206],
-        'iOYFmSXb3fgXlNIGfEnCVD76vVJ1Dcs3' : ['DST : 99 TRINITY',207],
-        'zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv' : ['DST : ANN ARBOR 2',208],
-        'Aw_YN3AuW_ek8UEk8GDYEc8XI3TRwH7O' : ['DST : LINWOOD',209],
+        '4CxBixmXESEOXLJQECt2P3AvxFwf7-ro' : ['DST : 101 2236 14TH STREET',"060850000D"], // CALIFORNIA ?
+        '6-bKPRHd9-nnJIyc42pCD2M_MbRnleXq' : ['DST : 102 TRINITY',"511070001D"], // VIRGINIA ?
+        'WeBVmyQ49aMH6BbdH25B1wKleSsigyit' : ['DST : 103 TRINITY',"511070002D"], // VIRGINIA ?
+        'MoKpBWWsEm7hfAaLC_yKOwR1Wh3woMvw' : ['DST : 93 2236 14TH STREET',"060850003D"], // CALIFORNIA ?
+        'PDPpH0pXXIhzOBPqIks30OoNPFFZi1fL' : ['DST : RECOVERY PARK',"060850004D"], // CALIFORNIA ?
+        'i6bTtM_KrbCGTq7Eg06ZXtopUOUNrHJb' : ['DST : OA 95',"261610005D"],
+        'fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA' : ['DST : 96 ECN',"060370006D"], // CALIFORNIA ?
+        'iOYFmSXb3fgXlNIGfEnCVD76vVJ1Dcs3' : ['DST : 99 TRINITY',"511070007D"], // VIRGINIA ?
+        'zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv' : ['DST : ANN ARBOR 2',"261610008D"],
+        'Aw_YN3AuW_ek8UEk8GDYEc8XI3TRwH7O' : ['DST : LINWOOD',"261610009D"],
 
         //TSI (300-399)
-        'FBPOWER1' : ['TSI : FBPOWER1',300],
-        'FBPOWER2' : ['TSI : FBPOWER2',301],
-        'FBPOWER3' : ['TSI : FBPOWER3',302],
-        'FBPOWER4' : ['TSI : FBPOWER4',303],
-        'FBPOWER5' : ['TSI : FBPOWER5',304],
-        'Sanctuary One' : ['TSI : SANCTUARY ONE',305],
+        'FBPOWER1' : ['TSI : FBPOWER1',"380530000T"], // NORTH DAKOTA ?
+        'FBPOWER2' : ['TSI : FBPOWER2',"380530001T"], // NORTH DAKOTA ?
+        'FBPOWER3' : ['TSI : FBPOWER3',"380610002T"], // NORTH DAKOTA ?
+        'FBPOWER4' : ['TSI : FBPOWER4',"380530003T"], // NORTH DAKOTA ?
+        'FBPOWER5' : ['TSI : FBPOWER5',"380530004T"], // NORTH DAKOTA ?
+        'Sanctuary One' : ['TSI : SANCTUARY ONE',"261610005T"],
 
     }
 
@@ -612,6 +615,13 @@ app.use(express.json())
                         console.log(err)
                     }
 
+                let param_before = result[0].parameter;
+                let time_before = result[0].time;
+                time_before = time_before.getFullYear() + " - " +  time_before.getMonth() + " - " + time_before.getDay() + " - " + time_before.getHours();
+
+                    let sum = 0;
+                    let count = 0;
+                    let mean = 0;
 
                 for(let i = 0; i < result.length; i++){
 
@@ -623,8 +633,13 @@ app.use(express.json())
                     let time = result[i].time;
                     let sensor_name = result[i].sensor_name;
 
-                    if(source == 'OAQ' || source == 'CLA'){
+                    let time_tracker = time.getFullYear() + " - " +  time.getMonth() + " - " + time.getDay() + " - " + time.getHours();
 
+
+                    //console.log(source + "<>" + time.getMonth())
+
+                    if(source == 'OAQ' || source == 'CLA'){
+                        
                         db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
                                 [value,parameter,unit,time,sensor_name],
                                 (err,result) => {
@@ -633,10 +648,52 @@ app.use(express.json())
                                     }
                                 }
                         )
+                        
 
                     }
-                    else if(source == 'DST'){
+                    else{
+
+                        //console.log( (param_before != parameter) || (time_before != time_tracker))
+
+                        if( (param_before != parameter) || (time_before != time_tracker) ){
+
+                
+                            //console.log(mean);
+                            
+                            
+                            db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
+                                    [mean,param_before,result[i-1].unit,result[i-1].time,"AGGREGATE"],
+                                    (err,result) => {
+                                        if(err){
+                                            console.log(err)
+                                        }
+                                    }
+                            )
+                            
                         
+                            sum = 0;
+                            count = 0;
+                            mean = 0;
+                            param_before = parameter;
+                            time_before = time_tracker;
+                        }
+
+                        
+                        sum += Number(value);
+                        count = count + 1;
+                        
+                        mean = sum/count;
+                        //console.log(sum + " / " + count + " = " + mean);
+                    
+
+                    }
+                    
+                    if(param_before != parameter){
+                        param_before = parameter;
+                    }
+
+                    if(time_before != time_tracker){
+                        time_before = time_tracker;
                     }
                     
                 }
@@ -646,7 +703,88 @@ app.use(express.json())
             
         };
 
+        async function daily_mean_add(){
+
+            db.query('SELECT * FROM `hourly_mean` ORDER BY parameter ASC, time ASC',
+                (err,result) => {
+                    if(err){
+                        console.log(err)
+                    }
+
+                    let time_before = result[0].time;
+                    time_before = time_before.getFullYear() + " - " +  time_before.getMonth() + " - " + time_before.getDay();
+
+                    let count = 0;
+                    let sum = 0;
+                    let mean = 0;
+
+                    for(let i = 0; i < result.length; i++){
+
+                        let value = result[i].value;
+                        let parameter = result[i].parameter;
+                        let unit = result[i].unit;
+
+                        let time = result[i].time;
+                        let time_tracker = time.getFullYear() + " - " +  time.getMonth() + " - " + time.getDay();
+
+                        if(time_before != time_tracker){
+
+                            db.query('INSERT INTO daily_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
+                                    [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,"AGGREGATE"],
+                                    (err,result) => {
+                                        if(err){
+                                            console.log(err)
+                                        }
+                                    }
+                            )
+
+                            sum = 0;
+                            mean = 0;
+                            count = 0;
+                            time_before = time_tracker;
+
+                        }
+
+                        sum+= Number(value);
+                        count++;
+                        mean = sum/count;
+
+                    }
+                
+            
+
+            });
+
+        };
+
     //Averages
+
+    //Helpers
+
+        //Add every sensor to sensor table in db
+        function add_sensors(){
+            OPENAQ_sensors_update();
+            CLARITY_sensors_update();
+            DST_sensors_update();
+            TSI_sensors_update();
+        }
+
+        //Output latitude and longitude for every sensor
+        async function lat_and_long_out(){
+            db.query('SELECT * FROM `sensors` ORDER BY sensor_id ASC',
+                (err,result) => {
+                    if(err){
+                        console.log(err)
+                    }
+
+                for(let i = 0; i < result.length; i++){
+                    let res = result[i]
+                    console.log(res.sensor_id + " - " + res.sensor_name + ": " + res.latitude + "," + res.longitude )
+                }
+            });
+        };
+
+    //Helpers
 
 //FUNCTIONS END HERE 
 
@@ -654,7 +792,10 @@ app.use(express.json())
 //CLARITY_db_add();
 //DST_db_add();
 //TSI_db_add();
-hourly_mean_add();
+//hourly_mean_add();
+//daily_mean_add();
+//lat_and_long_out();
+add_sensors();
 
 /*
 db.end(function(error){
