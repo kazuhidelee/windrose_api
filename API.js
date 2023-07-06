@@ -41,7 +41,9 @@ app.get("/", async (req, res) => {
 });
 
 // For each monitor, get most recent value of a specific pollutant
-app.get("/:pollutant", async (req, res) => {
+// Request link format is "[server]/latest[pollutant]". ex: http://localhost:3306/pm2.5
+// path changed because /data (route below) kept being read as a parameter for pollutant.
+app.get("/latest:pollutant", async (req, res) => {
     // Define measurement unit based on requested pollutant
     const unit = "";
     if(req.params.pollutant == "pm1" || req.params.pollutant == "pm2.5" || req.params.pollutant == "pm10") unit = "µg/m³";
@@ -57,7 +59,7 @@ app.get("/:pollutant", async (req, res) => {
 
     query += "ON t.sensor_name = recents.sensor_name AND t.time = recents.latest_time ";
     query = query + "WHERE t.parameter = ? AND unit = '" + unit + "'";
-    
+
     /* SQL query nicely formatted, example using PM 2.5
         SELECT 
             value, parameter, unit, time, latitude, longitude
@@ -111,3 +113,87 @@ app.get("/:pollutant", async (req, res) => {
         res.status(500).json({message: 'Error querying the database'});
     }
 });
+
+
+/*
+TODO:: ADD HUMAN FRIENDLY LOCATION INFO WHEN IT'S AVAILABLE ie not long-lat, maybe zip code or county? or x miles from address (maybe see if it's possible figure out how to calculate long/lat given address--there's probably a library somewhere??)
+    Returns data on a single pollutant in the last specified timeframe (hour, day, week, month, year) in chronological order
+    Default is all pollutants, day
+    meant for users/ presenting data as table, not for map; does not return in geojson format
+    Request link format is "[server]/data?pollutant=[pollutant]&timeframe=[timeframe]".
+    ex: http://localhost:3306/data?pollutant=pm2.5&timeframe=day
+    Return format: (excerpt of pm2.5 data)
+        {
+            "pm2.5": { "unit":"particles/cm³",
+                       "data":[
+                            {"time":"2023-06-28T08:00:00.000Z","measurement":"138.5","sensor":"OAQ : ELIZA HOWELL-NR"},
+                            {"time":"2023-06-28T08:00:00.000Z","measurement":"170.2","sensor":"OAQ : NEW HAVEN"},
+                            {"time":"2023-06-28T08:00:00.000Z","measurement":"206.5","sensor":"OAQ : DEARBORN"}
+                        ]
+                      }
+        }
+*/
+app.get("/data", async (req, res) => {
+    let date = new Date();
+    if (req.query.timeframe == "hour") {
+        date.setHours(date.getHours() - 1);
+    } else if (req.query.timeframe == "year") {
+        date.setFullYear(date.getFullYear()-1);
+    } else if (req.query.timeframe == "week") {
+        date.setDate(date.getDate() - 7);
+    } else if (req.query.timeframe == "month") {
+        date.setMonth(date.getMonth()-1);
+    } else {
+        // day, default timeframe
+        date.setDate(date.getDate() - 1);
+    } 
+    date = date.toISOString();
+    var query;
+    var params;
+    if (!req.query.pollutant) {
+        query = "SELECT * FROM measurements WHERE (time > ?) ORDER BY parameter, time";
+        params = [date];
+    } else {
+        query = "SELECT * FROM measurements WHERE (parameter = ? AND time > ?) ORDER BY time";
+        params = [req.query.pollutant, date];
+    }
+    try{
+        pool.query(query, params, (error, results) => {
+            if(!results[0]){ // No results
+                res.json({ status: "No results" });
+            } else{
+                var output = {};
+                var data = [];
+                var current_parameter = results[0].parameter;
+                for (var i = 0; i < results.length; i++) {
+                    if (results[i].parameter == current_parameter) {
+                        var newFeature = {
+                            "time": results[i].time,
+                            "measurement": results[i].value,
+                            "sensor": results[i].sensor_name,
+                        }
+                        data.push(newFeature);
+                    } else {
+                        current_parameter = results[i].parameter;
+                        output[results[i-1].parameter] = {
+                            'unit': results[i-1].unit,
+                            'data': data,
+                        };
+                        data = [];
+                        i--;
+                    }
+                }
+                output[results[results.length - 1].parameter] = {
+                    'unit': results[results.length - 1].unit,
+                    'data': data,
+                };
+                res.status(200).json(output);
+
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
+
