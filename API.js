@@ -13,8 +13,8 @@ app.listen(PORT, () => {
 
 // Database connection parameters
 var config = {
-    user: 'admin',
-    host: 'mrapid-db-instance.csicgkuu36em.us-east-1.rds.amazonaws.com',
+    user: 'root',
+    host: '34.171.19.205',
     password: 'mrapid123',
     database: 'MRAPID'
 }
@@ -28,10 +28,11 @@ mysql.createConnection(config, err => {
 });
 
 const pool = mysql.createPool({
-    user: 'admin',
-    host: 'mrapid-db-instance.csicgkuu36em.us-east-1.rds.amazonaws.com',
+    user: 'root',
+    //host: '34.171.19.205',
     password: 'mrapid123',
-    database: 'MRAPID'
+    database: 'MRAPID',
+    socketPath: 'cloudsql/mrapid:us-central1:mrapid'
 })
 
 // Routes
@@ -41,11 +42,10 @@ app.get("/", async (req, res) => {
 });
 
 // For each monitor, get most recent value of a specific pollutant
-// Request link format is "[server]/latest[pollutant]". ex: http://localhost:3306/pm2.5
-// path changed because /data (route below) kept being read as a parameter for pollutant.
+// Request link format is "[server]/latest[pollutant]". ex: http://localhost:3306/latestpm2.5
 app.get("/latest:pollutant", async (req, res) => {
     // Define measurement unit based on requested pollutant
-    const unit = "";
+    var unit = "";
     if(req.params.pollutant == "pm1" || req.params.pollutant == "pm2.5" || req.params.pollutant == "pm10") unit = "µg/m³";
     else unit = "ppm";
 
