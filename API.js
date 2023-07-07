@@ -117,6 +117,7 @@ app.get("/latest:pollutant", async (req, res) => {
 
 /*
 TODO:: ADD HUMAN FRIENDLY LOCATION INFO WHEN IT'S AVAILABLE ie not long-lat, maybe zip code or county? or x miles from address (maybe see if it's possible figure out how to calculate long/lat given address--there's probably a library somewhere??)
+ALSO, include: time to time?? parameters
     Returns data on a single pollutant in the last specified timeframe (hour, day, week, month, year) in chronological order
     Default is all pollutants, day
     meant for users/ presenting data as table, not for map; does not return in geojson format
@@ -132,6 +133,7 @@ TODO:: ADD HUMAN FRIENDLY LOCATION INFO WHEN IT'S AVAILABLE ie not long-lat, may
                         ]
                       }
         }
+    ex multiple but not all pollutant params selected: http://localhost:3306/data?pollutant=pm2.5&pollutant=CO&timeframe=day
 */
 app.get("/data", async (req, res) => {
     let date = new Date();
@@ -148,17 +150,30 @@ app.get("/data", async (req, res) => {
         date.setDate(date.getDate() - 1);
     } 
     date = date.toISOString();
+    console.log(date);
     var query;
-    var params;
+    var params = [];
     if (!req.query.pollutant) {
         query = "SELECT * FROM measurements WHERE (time > ?) ORDER BY parameter, time";
         params = [date];
     } else {
-        query = "SELECT * FROM measurements WHERE (parameter = ? AND time > ?) ORDER BY time";
-        params = [req.query.pollutant, date];
+        if (req.query.pollutant.length == 1) {
+            query = "SELECT * FROM measurements WHERE (parameter = ? AND time > ?) ORDER BY time";
+            params.push(req.query.pollutant);
+        } else {
+            query = "SELECT * FROM measurements WHERE ((";
+            req.query.pollutant.forEach(element => {
+                query += "(parameter = ?) || "
+                params.push(element);
+            });
+            query += "0) AND time > ?) ORDER BY parameter,time";
+        }
+        params.push(date);
     }
+    //console.log(query);
     try{
         pool.query(query, params, (error, results) => {
+            //console.log(results);
             if(!results[0]){ // No results
                 res.json({ status: "No results" });
             } else{
