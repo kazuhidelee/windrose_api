@@ -609,149 +609,197 @@ app.use(express.json())
         //calculate hourly means and add to hourly_mean table
         async function hourly_mean_add(){
 
-            db.query('SELECT * FROM `measurements` ORDER BY parameter ASC, time ASC',
+            db.query('SELECT * FROM `measurements` ORDER BY sensor_name ASC, parameter ASC, time ASC',
                 (err,result) => {
                     if(err){
                         console.log(err)
                     }
 
-                let param_before = result[0].parameter;
-                let time_before = result[0].time;
-                time_before = time_before.getFullYear() + " - " +  time_before.getMonth() + " - " + time_before.getDay() + " - " + time_before.getHours();
-
                     let sum = 0;
                     let count = 0;
-                    let mean = 0;
 
-                for(let i = 0; i < result.length; i++){
+                    for(let i = 0; i < result.length; i++){
+                    
+                        let source = result[i].sensor_name.substr(0,3);
+                        let value = result[i].value;
+                        let parameter = result[i].parameter;
+                        let unit = result[i].unit;
+                        let time = result[i].time;
+                        let sensor_name = result[i].sensor_name;
 
-                    let source = result[i].sensor_name.substr(0,3);
-
-                    let value = result[i].value;
-                    let parameter = result[i].parameter;
-                    let unit = result[i].unit;
-                    let time = result[i].time;
-                    let sensor_name = result[i].sensor_name;
-
-                    let time_tracker = time.getFullYear() + " - " +  time.getMonth() + " - " + time.getDay() + " - " + time.getHours();
-
-
-                    //console.log(source + "<>" + time.getMonth())
-
-                    if(source == 'OAQ' || source == 'CLA'){
                         
-                        db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
+
+                        if(source == 'OAQ' || source == 'CLA'){ // add the OpenAQ and CLARITY MONITORS
+
+                            if(i != 0 && (result[i].value == result[i-1].value) && (result[i].parameter == result[i-1].parameter) && (result[i].sensor_name == result[i-1].sensor_name) ){
+                                continue;
+                            }
+
+                            db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
                                 [value,parameter,unit,time,sensor_name],
                                 (err,result) => {
                                     if(err){
                                         console.log(err)
                                     }
                                 }
-                        )
-                        
-
-                    }
-                    else{
-
-                        //console.log( (param_before != parameter) || (time_before != time_tracker))
-
-                        if( (param_before != parameter) || (time_before != time_tracker) ){
-
-                
-                            //console.log(mean);
-                            
-                            
-                            db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                    [mean,param_before,result[i-1].unit,result[i-1].time,"AGGREGATE"],
-                                    (err,result) => {
-                                        if(err){
-                                            console.log(err)
-                                        }
-                                    }
                             )
+                    
+                        }
+                        else{
+                            let before = result[i-1].time;
+                            let time_before = before.getFullYear() + " - " + before.getMonth() + before.getDay() + " - " + before.getHours();
+                            let time_current = time.getFullYear() + " - " + time.getMonth() + time.getDay() + " - " + time.getHours();
+
+                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_name != result[i-1].sensor_name) ) &&  ( (result[i].sensor_name.substr(0,3) != "OAQ") || (result[i].sensor_name.substr(0,3) != "CLA") ) ){
+                                let mean = sum/count;
+                                
+                                if(isNaN(mean) || mean == 0){continue;} // :)
+                                
+                                db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
+                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_name],
+                                (err,result) => {
+                                    if(err){
+                                        console.log(err)
+                                    }
+                                }
+                                )
+                                
+                                sum = 0;
+                                count = 0;
+                                continue;
+                                
+                            }
                             
-                        
-                            sum = 0;
-                            count = 0;
-                            mean = 0;
-                            param_before = parameter;
-                            time_before = time_tracker;
+                            if(Number(value >= 0)){ //Sensors were returning negative values! I disregard these
+                                sum += Number(value);
+                                count++;
+                            }
+
                         }
 
-                        
-                        sum += Number(value);
-                        count = count + 1;
-                        
-                        mean = sum/count;
-                        //console.log(sum + " / " + count + " = " + mean);
-                    
-
                     }
-                    
-                    if(param_before != parameter){
-                        param_before = parameter;
-                    }
-
-                    if(time_before != time_tracker){
-                        time_before = time_tracker;
-                    }
-                    
-                }
 
             });
 
             
         };
 
+        //calculate daily means and add to daily_mean table
         async function daily_mean_add(){
 
-            db.query('SELECT * FROM `hourly_mean` ORDER BY parameter ASC, time ASC',
+            db.query('SELECT * FROM `measurements` ORDER BY parameter ASC, time ASC',
                 (err,result) => {
                     if(err){
                         console.log(err)
                     }
-
-                    let time_before = result[0].time;
-                    time_before = time_before.getFullYear() + " - " +  time_before.getMonth() + " - " + time_before.getDay();
-
-                    let count = 0;
+                
                     let sum = 0;
-                    let mean = 0;
+                    let count = 0;
 
                     for(let i = 0; i < result.length; i++){
-
+                    
+                        let source = result[i].sensor_name.substr(0,3);
                         let value = result[i].value;
                         let parameter = result[i].parameter;
                         let unit = result[i].unit;
-
                         let time = result[i].time;
-                        let time_tracker = time.getFullYear() + " - " +  time.getMonth() + " - " + time.getDay();
+                        let sensor_name = result[i].sensor_name;
 
-                        if(time_before != time_tracker){
-
-                            db.query('INSERT INTO daily_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                    [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,"AGGREGATE"],
-                                    (err,result) => {
-                                        if(err){
-                                            console.log(err)
-                                        }
+                        if(i != 0){
+                            let before = result[i-1].time;
+                            let time_before = before.getFullYear() + " - " + before.getMonth() + before.getDay();
+                            let time_current = time.getFullYear() + " - " + time.getMonth() + time.getDay();
+    
+                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_name != result[i-1].sensor_name) ) &&  ( (result[i].sensor_name.substr(0,3) != "OAQ") || (result[i].sensor_name.substr(0,3) != "CLA") ) ){
+                                let mean = sum/count;
+                                
+                                if(isNaN(mean) || mean == 0){continue;} // :)
+                                
+                                db.query('INSERT INTO daily_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
+                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_name],
+                                (err,result) => {
+                                    if(err){
+                                        console.log(err)
                                     }
-                            )
-
-                            sum = 0;
-                            mean = 0;
-                            count = 0;
-                            time_before = time_tracker;
-
+                                }
+                                )
+                                
+                                sum = 0;
+                                count = 0;
+                                continue;
+                                
+                            }
                         }
-
-                        sum+= Number(value);
-                        count++;
-                        mean = sum/count;
-
+                        
+                        if(Number(value >= 0)){ //Sensors were returning negative values! I disregard these
+                            sum += Number(value);
+                            count++;
+                        }
+                    
                     }
+
+
                 
             
+
+            });
+
+        };
+
+        //calculate monthly means and add to monthly_mean table
+        async function monthly_mean_add(){
+
+            db.query('SELECT * FROM `measurements` ORDER BY parameter ASC, time ASC',
+                (err,result) => {
+                    if(err){
+                        console.log(err)
+                    }
+                
+                    let sum = 0;
+                    let count = 0;
+
+                    for(let i = 0; i < result.length; i++){
+                    
+                        let source = result[i].sensor_name.substr(0,3);
+                        let value = result[i].value;
+                        let parameter = result[i].parameter;
+                        let unit = result[i].unit;
+                        let time = result[i].time;
+                        let sensor_name = result[i].sensor_name;
+
+                        if(i != 0){
+                            let before = result[i-1].time;
+                            let time_before = before.getFullYear() + " - " + before.getMonth();
+                            let time_current = time.getFullYear() + " - " + time.getMonth();
+    
+                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_name != result[i-1].sensor_name) ) &&  ( (result[i].sensor_name.substr(0,3) != "OAQ") || (result[i].sensor_name.substr(0,3) != "CLA") ) ){
+                                let mean = sum/count;
+                                
+                                if(isNaN(mean) || mean == 0){continue;} // :)
+                                
+                                db.query('INSERT INTO monthly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
+                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_name],
+                                (err,result) => {
+                                    if(err){
+                                        console.log(err)
+                                    }
+                                }
+                                )
+                                
+                                sum = 0;
+                                count = 0;
+                                continue;
+                                
+                            }
+                        }
+    
+                        if(Number(value >= 0)){ //Sensors were returning negative values! I disregard these
+                            sum += Number(value);
+                            count++;
+                        }
+                    
+                    }
+
 
             });
 
@@ -809,6 +857,13 @@ app.use(express.json())
             }
         };
 
+        //Averages for (Hourly, Daily, and Monthly) and adds to respective tables in database
+        async function calculate_averages(){
+            hourly_mean_add();
+            daily_mean_add();
+            monthly_mean_add();
+        }
+
     //Helpers
 
 //FUNCTIONS END HERE 
@@ -817,12 +872,14 @@ app.use(express.json())
 //CLARITY_db_add();
 //DST_db_add();
 //TSI_db_add();
+//get_measurements_from_all_APIs();
+
 //hourly_mean_add();
 //daily_mean_add();
-//lat_and_long_out();
+//monthly_mean_add();
+calculate_averages();
+
 //add_sensors();
-//select_measurements();
-get_measurements_from_all_APIs();
 
 /*
 db.end(function(error){
