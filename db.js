@@ -11,25 +11,25 @@ app.use(express.json())
 
 //Create Connection to Database
 
-    // AWS
+    // Google cloud
     /*
-    */
     const db = mysql.createConnection({
         user: 'root',
         host: '34.171.19.205',
         password: 'mrapid123',
         database: 'MRAPID',
     });
+    */
 
     // MYSQL PHP ADMIN
     /*
+    */
     const db = mysql.createConnection({
         user: 'root',
         host: 'localhost',
         password: '',
         database: 'MRAPID',
     });
-    */
 
 //Create Connection to Database
 
@@ -174,7 +174,7 @@ app.use(express.json())
     //OPENAQ
 
         //add measurements to database
-        async function OPENAQ_db_add(){
+        export async function OPENAQ_db_add(){
             try {
 
                 //Make API request and create JSON Object
@@ -271,7 +271,7 @@ app.use(express.json())
     //Clarity 
         
         //add measurements to database
-        async function CLARITY_db_add(){
+        export async function CLARITY_db_add(){
             try {
                 // in URL, use parameter "code" for Device ID and "datasourceId" for Datasource ID
                 //const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6,AXPPQ0QF,AW2JHDG8&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
@@ -412,7 +412,7 @@ app.use(express.json())
         };
 
         //Adds measurements to db (utiliizes abode 2 functions)
-        async function DST_db_add(){
+        export async function DST_db_add(){
 
             //ARRAY OF DST SENSORS
 
@@ -493,7 +493,7 @@ app.use(express.json())
     //TSI
         
         //add measurements to database
-        async function TSI_db_add(){
+        export async function TSI_db_add(){
 
             const client_id = "PKJqYB0yeGrZu9RE4JJaBaVZzC0OLHDe5nDZ9m7T0mc0tG2a"
             const secret = "XZZDwi2ElaOTldFTo4NwYJdfh2Z21R8hFwf9uqGHFzWNE52yCpeYx263v5rNFMSs"
@@ -784,6 +784,7 @@ app.use(express.json())
             });
         };
 
+        //Shows all the measurements in the measuremnts table;
         async function select_measurements(){
             db.query('SELECT * FROM `measurements`',
                 (err,result) => {
@@ -792,6 +793,20 @@ app.use(express.json())
                     }
                     console.log(result);
             });
+        };
+        
+        //Calls every API and adds to database every (600000 milliseconds = 10 minutes)
+        async function get_measurements_from_all_APIs(){
+            let i = 1;
+            while(true){
+              await new Promise(resolve => setTimeout(resolve, 600000));
+              OPENAQ_db_add();
+              CLARITY_db_add();
+              DST_db_add();
+              TSI_db_add();
+              console.log("All API's called " + i + " times");
+              i++;
+            }
         };
 
     //Helpers
@@ -806,7 +821,9 @@ app.use(express.json())
 //daily_mean_add();
 //lat_and_long_out();
 //add_sensors();
-select_measurements();
+//select_measurements();
+get_measurements_from_all_APIs();
+
 /*
 db.end(function(error){
     if(error){

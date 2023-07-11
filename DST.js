@@ -12,7 +12,7 @@ export const DST_Sensors = [
     'fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA',
     'iOYFmSXb3fgXlNIGfEnCVD76vVJ1Dcs3',
     'zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv',
-    'Aw_YN3AuW_ek8UEk8GDYEc8XI3TRwH7O',
+    'UJAP0ynm2WFA55mP09y9xo-VfocL-6Nn',
 ] 
 
 //Sensor locations, indexes match with vector above
