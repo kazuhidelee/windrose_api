@@ -1,4 +1,4 @@
-FROM node
+FROM node:13-alpine
 RUN mkdir -p /home/app
 COPY . /home/app
-CMD ["node", "API.js"]
+CMD ["node", "/home/app/API.js"]
