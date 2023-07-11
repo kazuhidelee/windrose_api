@@ -29,10 +29,9 @@ mysql.createConnection(config, err => {
 
 const pool = mysql.createPool({
     user: 'root',
-    //host: '34.171.19.205',
+    host: '34.171.19.205',
     password: 'mrapid123',
-    database: 'MRAPID',
-    socketPath: 'cloudsql/mrapid:us-central1:mrapid'
+    database: 'MRAPID'
 })
 
 // Routes
@@ -42,7 +41,7 @@ app.get("/", async (req, res) => {
 });
 
 // For each monitor, get most recent value of a specific pollutant
-// Request link format is "[server]/latest[pollutant]". ex: http://localhost:3306/latestpm2.5
+// Request link format is "[server]/latest[pollutant]". ex: http://localhost:8080/latestpm2.5
 app.get("/latest:pollutant", async (req, res) => {
     // Define measurement unit based on requested pollutant
     var unit = "";
