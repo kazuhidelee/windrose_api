@@ -95,7 +95,7 @@ app.get("/latest:pollutant", async (req, res) => {
                     }
                     geojson['features'].push(newFeature);
                 }
-​
+                
                 res.status(200).json(geojson);
             }
         });
@@ -104,8 +104,8 @@ app.get("/latest:pollutant", async (req, res) => {
         res.status(500).json({message: 'Error querying the database'});
     }
 });
-​
-​
+
+
 /*
 TODO:: ADD HUMAN FRIENDLY LOCATION INFO WHEN IT'S AVAILABLE ie not long-lat, maybe zip code or county? or x miles from address (maybe see if it's possible figure out how to calculate long/lat given address--there's probably a library somewhere??)
 ALSO, include: time to time?? parameters
@@ -197,7 +197,7 @@ app.get("/data", async (req, res) => {
                     'data': data,
                 };
                 res.status(200).json(output);
-​
+
             }
         });
     } catch(error){
