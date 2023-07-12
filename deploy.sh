@@ -6,7 +6,7 @@ DB_USER=root
 DB_PASS=mrapid123
 DB_NAME=MRAPID
 
-gcloud builds submit --tag us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/$REPO_NAME/api:latest \
+gcloud builds submit --tag gcr.io/$GOOGLE_PROJECT_ID/$CLOUD_RUN_SERVICE \
     --project=$GOOGLE_PROJECT_ID
 
 gcloud run deploy $CLOUD_RUN_SERVICE \
