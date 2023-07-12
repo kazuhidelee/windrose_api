@@ -75,7 +75,7 @@ app.get("/latest:pollutant", async (req, res) => {
                 geojson['features'] = [];
                 
                 for (var i = 0; i < results.length; ++i) {
-                    var param = results[i].parameter;
+                    //var param = results[i].parameter;
 
                     // round latitude and longitude coordinates to 4 decimal places
                     var lat = Number(results[i].latitude);
