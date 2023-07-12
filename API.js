@@ -1,16 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql';
-​
+
 const app = express();
 app.use(cors());
 app.use(express.json());
-​
+
 const PORT = process.env.port || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`);
 });
-​
+
 // Connect to the database
 const pool = mysql.createPool({
     user: 'root',
@@ -18,14 +18,14 @@ const pool = mysql.createPool({
     database: 'MRAPID',
     socketPath: '/cloudsql/mrapid:us-central1:mrapid',
 })
-​
-​
+
+
 // Routes
 // Home, test response
 app.get("/", async (req, res) => {
     res.json({status: "Ready! :)"});
 });
-​
+
 // For each monitor, get most recent value of a specific pollutant
 // Request link format is "[server]/latest[pollutant]". ex: http://localhost:8080/latestpm2.5
 app.get("/latest:pollutant", async (req, res) => {
@@ -38,13 +38,13 @@ app.get("/latest:pollutant", async (req, res) => {
     var query = "SELECT value, parameter, unit, time, latitude, longitude FROM MRAPID.measurements t ";
     const join_lat_long = "INNER JOIN MRAPID.sensors ON t.sensor_name = MRAPID.sensors.sensor_name ";
     query += join_lat_long;
-​
+
     const recents = "SELECT sensor_name, MAX(time) latest_time FROM MRAPID.measurements WHERE parameter = ? AND unit = '" + unit + "' GROUP BY sensor_name ";
     query += "JOIN ( " + recents + " ) recents ";
-​
+
     query += "ON t.sensor_name = recents.sensor_name AND t.time = recents.latest_time ";
     query = query + "WHERE t.parameter = ? AND unit = '" + unit + "'";
-​
+
     /* SQL query nicely formatted, example using PM 2.5
         SELECT 
             value, parameter, unit, time, latitude, longitude
@@ -76,11 +76,18 @@ app.get("/latest:pollutant", async (req, res) => {
                 
                 for (var i = 0; i < results.length; ++i) {
                     var param = results[i].parameter;
+
+                    // round latitude and longitude coordinates to 4 decimal places
+                    var lat = Number(results[i].latitude);
+                    var long = Number(results[i].longitude);
+                    var lat_rounded = lat.toFixed(4);
+                    var long_rounded = long.toFixed(4);
+
                     var newFeature = {
                         "type": "Feature",
                         "geometry": {
                             "type": "Point",
-                            "coordinates": [results[i].latitude, results[i].longitude]
+                            "coordinates": [lat_rounded, long_rounded]
                         },
                         "properties": {
                             param: results[i].value
