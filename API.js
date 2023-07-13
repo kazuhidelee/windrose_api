@@ -87,7 +87,7 @@ app.get("/latest:pollutant", async (req, res) => {
                         "type": "Feature",
                         "geometry": {
                             "type": "Point",
-                            "coordinates": [lat_rounded, long_rounded]
+                            "coordinates": [long_rounded, lat_rounded]
                         },
                         "properties": {
                             param: results[i].value
