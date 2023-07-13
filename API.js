@@ -90,7 +90,7 @@ app.get("/latest:pollutant", async (req, res) => {
                             "coordinates": [long_rounded, lat_rounded]
                         },
                         "properties": {
-                            param: results[i].value
+                            param: Number(results[i].value)
                         }
                     }
                     geojson['features'].push(newFeature);
