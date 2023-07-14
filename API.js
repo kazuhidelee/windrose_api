@@ -26,6 +26,39 @@ app.get("/", async (req, res) => {
     res.json({status: "Ready! :)"});
 });
 
+// Returns a list of all the parameters we have measurements for in units of µg/m³, ppm, or ppb
+app.get("/parameterList", async (req, res) => {
+    const query = "SELECT DISTINCT parameter, unit FROM MRAPID.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb'";
+
+    try{
+        pool.query(query, [], (error, results) => {
+            if(!results[0]){ // No results
+                res.json({ status: "Not found" });
+            } else{
+                // Return measurements in a Feature Collection
+                var allParams = {};
+                allParams['results'] = [];
+                
+                for(var i = 0; i < results.length; ++i){
+                    var param = {
+                        "id": i + 1,
+                        "name": results[i].parameter,
+                        "units": results[i].unit,
+                        "displayName": results[i].parameter
+                    };
+                    
+                    allParams['results'].push(param);
+                }
+
+                res.status(200).json(allParams);
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
+
 // For pollutant map, one feature for each sensor and most recent measurements for all pollutants
 // Also returns some sensor information
 app.get("/mapData", async (req, res) => {
