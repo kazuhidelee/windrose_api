@@ -4,6 +4,7 @@ import cors from 'cors'
 import got from 'got';
 
 import { DST_Sensors,DST_Sensor_Locations,DST_params } from './DST.js';
+import { purpleAir_Monitors } from './purpleAir.js'
 
 const app = express()
 app.use(cors())
@@ -38,18 +39,24 @@ app.use(express.json())
     // 3 Character Source Code to Source Conversion
     const source_dict = {
         'OAQ' : 'OPENAQ',
+        'O' : 'OPENAQ',
+        'PAR' : 'PURPLEAIR',
+        'P' : 'OPENAQ',
         'CLA' : 'CLARITY',
+        'C' : 'OPENAQ',
         'DST' : 'DST',
+        'D' : 'OPENAQ',
         'TSI' : 'BLUESKY TSI',
+        'T' : 'OPENAQ',
     }
 
     // ALL SENSORS BY THEIR RESPECTIVE API IDS (API ID : [Sensor_name,Sensor_id])
         //sensor ID = (2 digit AQS State ID) + ( 3 digit AQS County ID) + (4 digit sensor ID) + (1 letter for source) = 10 digits
         //sensor ID = XX XXX XXXX X = XXXXXXXXXX
-        // O = OAQ, C = CLA, D = DST, T = TSI
+        // O = OAQ, P = PAR, C = CLA, D = DST, T = TSI
     const sensor_locations = {
 
-        //OPENAQ (0-99)
+        //OPENAQ
         'ALLEN PARK' : ['OAQ : ALLEN PARK',"261630000O"],
         'PORT HURON' : ['OAQ : PORT HURON',"261470001O"],
         'NMH48217' : ['OAQ : NMH48217',"261630002O"],
@@ -64,7 +71,37 @@ app.use(express.json())
         'DP4TH' : ['OAQ : DP4TH',"261630011O"],
         'MILITARY PARK' : ['OAQ : MILITARY PARK',"261630012O"],
 
-        //CLARITY (100-199)
+        //PURPLEAIR
+        'WalledLakeSensor' : ['PAR : WalledLakeSensor',"261250000P"],
+        'Pilgrim near Pine' : ['PAR : Pilgrim near Pine',"261250001P"],
+        'Birmingham' : ['PAR : Birmingham',"261250002P"],
+        'Novi Township' : ['PAR : Novi Township',"261250003P"],
+        'CBS News Detroit NEXT Weather' : ['PAR : CBS News Detroit NEXT Weather',"261250004P"],
+        'AREN PROJECT Livonia' : ['PAR : AREN PROJECT Livonia',"261630005P"],
+        'JAM_OakPark' : ['PAR : JAM_OakPark',"261250006P"],
+        'Woodstock and Renfrew' : ['PAR : Woodstock and Renfrew',"261630007P"],
+        'Crestwood High School - Courtyard' : ['PAR : Crestwood High School - Courtyard',"261630008P"],
+        'Auddette/ Mayfair' : ['PAR : Auddette/ Mayfair',"261630009P"],
+        'Timber Creek' : ['PAR : Timber Creek',"261630010P"],
+        'Appoline St' : ['PAR : Appoline St',"261630011P"],
+        'Schafer Neighborhood' : ['PAR : Schafer Neighborhood',"261630012P"],
+        'Foley St' : ['PAR : Foley St',"261630013P"],
+        'EC-Deacon St' : ['PAR : EC-Deacon St',"261630014P"],
+        'EC_Clark' : ['PAR : EC_Clark',"261630015P"],
+        'EC-DHDC I' : ['PAR : EC-DHDC I',"261630016P"],
+        'La Salle Gardens (outside)' : ['PAR : La Salle Gardens (outside)',"261630017P"],
+        'Recovery Park Rooftop' : ['PAR : Recovery Park Rooftop',"261630018P"],
+        'KatAir' : ['PAR : KatAir',"261630019P"],
+        'GCCS' : ['PAR : GCCS',"261630020P"],
+        'EC_Beiniteau 2' : ['PAR : EC_Beiniteau 2',"261630021P"],
+        'EC-ECN Conner' : ['PAR : EC-ECN Conner',"261630022P"],
+        '855 balfour' : ['PAR : 855 balfour',"261630023P"],
+        'SCSnet1' : ['PAR : SCSnet1',"260990024P"],
+        'Fraser MI' : ['PAR : Fraser MI',"260990025P"],
+        'Hilton' : ['PAR : Hilton',"260990026P"],
+        'Sterling Heights' : ['PAR : Sterling Heights',"260990027P"],
+
+        //CLARITY
         'AHKQKKTX' : ['CLA : AHKQKKTX',"261630000C"],
         'AK9VQ3KV' : ['CLA : AK9VQ3KV',"380610001C"], // NORTH DAKOTA ?
         'AT9BM6VV' : ['CLA : EC3',"261630002C"],
@@ -74,7 +111,7 @@ app.use(express.json())
         'ALQ1TJN6' : ['CLA : EC5',"261630006C"],
         'A5GGSW99' : ['CLA : EC6',"261630007C"],
 
-        //DST (200-299)
+        //DST
         '4CxBixmXESEOXLJQECt2P3AvxFwf7-ro' : ['DST : 101 2236 14TH STREET',"060850000D"], // CALIFORNIA ?
         '6-bKPRHd9-nnJIyc42pCD2M_MbRnleXq' : ['DST : 102 TRINITY',"511070001D"], // VIRGINIA ?
         'WeBVmyQ49aMH6BbdH25B1wKleSsigyit' : ['DST : 103 TRINITY',"511070002D"], // VIRGINIA ?
@@ -84,9 +121,9 @@ app.use(express.json())
         'fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA' : ['DST : 96 ECN',"060370006D"], // CALIFORNIA ?
         'iOYFmSXb3fgXlNIGfEnCVD76vVJ1Dcs3' : ['DST : 99 TRINITY',"511070007D"], // VIRGINIA ?
         'zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv' : ['DST : ANN ARBOR 2',"261610008D"],
-        'Aw_YN3AuW_ek8UEk8GDYEc8XI3TRwH7O' : ['DST : LINWOOD',"261610009D"],
+        'UJAP0ynm2WFA55mP09y9xo-VfocL-6Nn' : ['DST : LINWOOD',"261610009D"],
 
-        //TSI (300-399)
+        //TSI
         'FBPOWER1' : ['TSI : FBPOWER1',"380530000T"], // NORTH DAKOTA ?
         'FBPOWER2' : ['TSI : FBPOWER2',"380530001T"], // NORTH DAKOTA ?
         'FBPOWER3' : ['TSI : FBPOWER3',"380610002T"], // NORTH DAKOTA ?
@@ -99,7 +136,7 @@ app.use(express.json())
     // PARAMETERS FOR API TO CONSISTENT PARAMETER IN DATABASE (API parameter name : db parameter name)
     var paramater_conversions = {
 
-        //OPENAQ
+        //OPENAQ (including purpleair)
         "pm10" : "pm10",
         "pm25" : "pm2.5",
         "o3" : "O3",
@@ -128,6 +165,12 @@ app.use(express.json())
         "ozone" : "O3",
         "pm4" : "pm4",
         "so4" : "SO4",
+        "um005" : "um5",
+        "um010" : "um10",
+        "um025" : "um25",
+        "um003" : "um3",
+        "um100" : "um100",
+        "um050" : "um50",
 
         //CLARITY (already done in db add function)
 
@@ -174,7 +217,7 @@ app.use(express.json())
     //OPENAQ
 
         //add measurements to database
-        export async function OPENAQ_db_add(){
+        async function OPENAQ_db_add(){
             try {
 
                 //Make API request and create JSON Object
@@ -189,7 +232,7 @@ app.use(express.json())
                 for(let i = 0; i < num_locations; i++){
 
                     const loc = data.results[i].location;
-                    const sensor_name = sensor_locations[loc][0]
+                    const sensor_id = sensor_locations[loc][1]
             
                     //add measurements for each location in to table
                     for(let j = 0; j < data.results[i].measurements.length; j++){
@@ -202,8 +245,8 @@ app.use(express.json())
                         
                         time = time.substr(0,10) + " " + time.substr(11).substr(0,8)
 
-                        db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                        [val,parameter,unit,time,sensor_name],
+                        db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                        [val,parameter,unit,time,sensor_id],
                         (err,result) => {
                             if(err){
                                 console.log(err)
@@ -213,8 +256,6 @@ app.use(express.json())
             
                     }
 
-                    
-            
                 }
 
             
@@ -268,10 +309,95 @@ app.use(express.json())
     
     //OPENAQ
 
+    //PurpleAIR
+        
+        //add measurements to database
+        async function PURPLEAIR_db_add(){
+            try {
+
+                for(let i = 0; i < purpleAir_Monitors.length; i++){
+                    let monitor = purpleAir_Monitors[i];
+                    const URL = 'https://api.openaq.org/v2/latest?location=' + monitor
+                    const response = await got(URL);
+                    let data = JSON.parse(response.body);
+                    let loc = data.results[0].location;
+                    let sensor_id = sensor_locations[loc][1];
+                    
+                    for(let j = 0; j < data.results[0].measurements.length; j++){
+                        let val = data.results[0].measurements[j].value;
+                        let parameter = paramater_conversions[data.results[0].measurements[j].parameter];
+                        let unit = data.results[0].measurements[j].unit;
+                        let time = data.results[0].measurements[j].lastUpdated;
+
+                        if(unit == "iaq"){ continue; }
+                        time = time.substr(0,10) + " " + time.substr(11).substr(0,8);
+                        
+                        db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                        [val,parameter,unit,time,sensor_id],
+                        (err,result) => {
+                            if(err){
+                                console.log(err)
+                            }
+                            
+                        }) 
+
+
+                    }
+
+                }
+
+
+                //Make API request and create JSON Object
+                
+            
+            } catch (error) {
+                console.log(error.data);
+            }
+        };
+
+        //add sensors to database (add to "sensors" table)
+        async function PURPLEAIR_sensors_update(){
+            try {
+
+                for(let i = 0; i < purpleAir_Monitors.length; i++){
+                    let monitor = purpleAir_Monitors[i];
+                    const URL = 'https://api.openaq.org/v2/latest?location=' + monitor
+                    const response = await got(URL);
+                    let data = JSON.parse(response.body);
+
+                    let loc = data.results[0].location;
+                    const source = "PURPLEAIR";
+                    const sensor_name = sensor_locations[loc][0];
+                    const sensor_id = sensor_locations[loc][1];
+                    const lat = data.results[0].coordinates.latitude;
+                    const long = data.results[0].coordinates.longitude;
+
+                    db.query('INSERT INTO sensors (sensor_name,sensor_id,source,latitude,longitude) VALUES (?,?,?,?,?)',
+                    [sensor_name,sensor_id,source,lat,long],
+                    (err,result) => {
+                        if(err){
+                            console.log(err)
+                        }
+
+                    })
+
+                }
+
+                //Make API request and create JSON Object
+                
+            
+            } catch (error) {
+                console.log(error.data);
+            }
+
+        };
+
+    //PurpleAIR
+
     //Clarity 
         
         //add measurements to database
-        export async function CLARITY_db_add(){
+        async function CLARITY_db_add(){
             try {
                 // in URL, use parameter "code" for Device ID and "datasourceId" for Datasource ID
                 //const URL = 'https://clarity-data-api.clarity.io/v1/measurements?code=AT9BM6VV,ALQ1TJN6,AXPPQ0QF,AW2JHDG8&startTime=2023-06-01T00:00:00Z&endTime=2023-06-01T1:00:00Z';
@@ -292,7 +418,7 @@ app.use(express.json())
                 for(let i = 0; i < data.length; i++){
 
                     let code = data[i].deviceCode;
-                    const sensor_name = sensor_locations[code][0];
+                    const sensor_id = sensor_locations[code][1];
                     let time = data[i].time;
                     time = time.substr(0,10) + " " + time.substr(11).substr(0,8);
                     //console.log(time);
@@ -314,8 +440,8 @@ app.use(express.json())
 
                         if(add_mes[j][0]){
 
-                            db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                [add_mes[j][0],add_mes[j][1],add_mes[j][2],time,sensor_name],
+                            db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                                [add_mes[j][0],add_mes[j][1],add_mes[j][2],time,sensor_id],
                                 (err,result) => {
                                     if(err){
                                         console.log(err)
@@ -412,7 +538,7 @@ app.use(express.json())
         };
 
         //Adds measurements to db (utiliizes abode 2 functions)
-        export async function DST_db_add(){
+        async function DST_db_add(){
 
             //ARRAY OF DST SENSORS
 
@@ -423,7 +549,7 @@ app.use(express.json())
                         
                         fetch_device_measurement_DST(DST_Sensors[i]).then((response) => { //fetch the measurements from the sensor in the last hour
                             
-                            const sensor_name = sensor_locations[DST_Sensors[i]][0];
+                            const sensor_id = sensor_locations[DST_Sensors[i]][1];
 
                             for(let j = 0; j < response.data.length; j++){ //iterate through all recorded measurements
 
@@ -442,8 +568,8 @@ app.use(express.json())
 
                                     unit = unit == ("ug/m3") ? unit = "µg/m³" : unit; //catch for ug/m3 to using mu and m^3
 
-                                    db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                        [value,parameter,unit,time,sensor_name],
+                                    db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                                        [value,parameter,unit,time,sensor_id],
                                         (err,result) => {
                                             if(err){
                                                 console.log(err)
@@ -493,7 +619,7 @@ app.use(express.json())
     //TSI
         
         //add measurements to database
-        export async function TSI_db_add(){
+        async function TSI_db_add(){
 
             const client_id = "PKJqYB0yeGrZu9RE4JJaBaVZzC0OLHDe5nDZ9m7T0mc0tG2a"
             const secret = "XZZDwi2ElaOTldFTo4NwYJdfh2Z21R8hFwf9uqGHFzWNE52yCpeYx263v5rNFMSs"
@@ -513,7 +639,7 @@ app.use(express.json())
 
                     for(let i = 0; i < json.length; i++){
                         let code = json[i].metadata.friendly_name;
-                        let sensor_name = sensor_locations[code][0];
+                        let sensor_id = sensor_locations[code][1];
 
                         
                         for(let j = 0; j < json[i].sensors.length; j++){
@@ -532,8 +658,8 @@ app.use(express.json())
                                 //Catches for Unit 
                                 
                                 
-                                db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                    [value,parameter,unit,time,sensor_name],
+                                db.query('INSERT INTO measurements (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                                    [value,parameter,unit,time,sensor_id],
                                     (err,result) => {
                                         if(err){
                                             console.log(err)
@@ -609,7 +735,7 @@ app.use(express.json())
         //calculate hourly means and add to hourly_mean table
         async function hourly_mean_add(){
 
-            db.query('SELECT * FROM `measurements` ORDER BY sensor_name ASC, parameter ASC, time ASC',
+            db.query('SELECT * FROM `measurements` ORDER BY sensor_id ASC, parameter ASC, time ASC',
                 (err,result) => {
                     if(err){
                         console.log(err)
@@ -620,23 +746,21 @@ app.use(express.json())
 
                     for(let i = 0; i < result.length; i++){
                     
-                        let source = result[i].sensor_name.substr(0,3);
+                        let source = source_dict[result[i].sensor_id.at(-1)];
                         let value = result[i].value;
                         let parameter = result[i].parameter;
                         let unit = result[i].unit;
                         let time = result[i].time;
-                        let sensor_name = result[i].sensor_name;
-
-                        
+                        let sensor_id = result[i].sensor_id;
 
                         if(source == 'OAQ' || source == 'CLA'){ // add the OpenAQ and CLARITY MONITORS
 
-                            if(i != 0 && (result[i].value == result[i-1].value) && (result[i].parameter == result[i-1].parameter) && (result[i].sensor_name == result[i-1].sensor_name) ){
+                            if(i != 0 && (result[i].value == result[i-1].value) && (result[i].parameter == result[i-1].parameter) && (result[i].sensor_id == result[i-1].sensor_id) ){
                                 continue;
                             }
 
-                            db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                [value,parameter,unit,time,sensor_name],
+                            db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                                [value,parameter,unit,time,sensor_id],
                                 (err,result) => {
                                     if(err){
                                         console.log(err)
@@ -646,17 +770,18 @@ app.use(express.json())
                     
                         }
                         else{
+                            if(i == 0){ continue;}
                             let before = result[i-1].time;
                             let time_before = before.getFullYear() + " - " + before.getMonth() + before.getDay() + " - " + before.getHours();
                             let time_current = time.getFullYear() + " - " + time.getMonth() + time.getDay() + " - " + time.getHours();
 
-                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_name != result[i-1].sensor_name) ) &&  ( (result[i].sensor_name.substr(0,3) != "OAQ") || (result[i].sensor_name.substr(0,3) != "CLA") ) ){
+                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_id != result[i-1].sensor_id) ) ){
                                 let mean = sum/count;
                                 
                                 if(isNaN(mean) || mean == 0){continue;} // :)
                                 
-                                db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_name],
+                                db.query('INSERT INTO hourly_mean (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_id],
                                 (err,result) => {
                                     if(err){
                                         console.log(err)
@@ -687,7 +812,7 @@ app.use(express.json())
         //calculate daily means and add to daily_mean table
         async function daily_mean_add(){
 
-            db.query('SELECT * FROM `measurements` ORDER BY parameter ASC, time ASC',
+            db.query('SELECT * FROM `measurements` ORDER BY sensor_id ASC, parameter ASC, time ASC',
                 (err,result) => {
                     if(err){
                         console.log(err)
@@ -698,25 +823,25 @@ app.use(express.json())
 
                     for(let i = 0; i < result.length; i++){
                     
-                        let source = result[i].sensor_name.substr(0,3);
+                        let source = source_dict[result[i].sensor_id.at(-1)];
                         let value = result[i].value;
                         let parameter = result[i].parameter;
                         let unit = result[i].unit;
                         let time = result[i].time;
-                        let sensor_name = result[i].sensor_name;
+                        let sensor_id = result[i].sensor_id;
 
                         if(i != 0){
                             let before = result[i-1].time;
                             let time_before = before.getFullYear() + " - " + before.getMonth() + before.getDay();
                             let time_current = time.getFullYear() + " - " + time.getMonth() + time.getDay();
     
-                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_name != result[i-1].sensor_name) ) &&  ( (result[i].sensor_name.substr(0,3) != "OAQ") || (result[i].sensor_name.substr(0,3) != "CLA") ) ){
+                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_id != result[i-1].sensor_id) ) ){
                                 let mean = sum/count;
                                 
                                 if(isNaN(mean) || mean == 0){continue;} // :)
                                 
-                                db.query('INSERT INTO daily_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_name],
+                                db.query('INSERT INTO daily_mean (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_id],
                                 (err,result) => {
                                     if(err){
                                         console.log(err)
@@ -749,7 +874,7 @@ app.use(express.json())
         //calculate monthly means and add to monthly_mean table
         async function monthly_mean_add(){
 
-            db.query('SELECT * FROM `measurements` ORDER BY parameter ASC, time ASC',
+            db.query('SELECT * FROM `measurements` ORDER BY sensor_id ASC, parameter ASC, time ASC',
                 (err,result) => {
                     if(err){
                         console.log(err)
@@ -760,25 +885,25 @@ app.use(express.json())
 
                     for(let i = 0; i < result.length; i++){
                     
-                        let source = result[i].sensor_name.substr(0,3);
+                        let source = source_dict[result[i].sensor_id.at(-1)];
                         let value = result[i].value;
                         let parameter = result[i].parameter;
                         let unit = result[i].unit;
                         let time = result[i].time;
-                        let sensor_name = result[i].sensor_name;
+                        let sensor_id = result[i].sensor_id;
 
                         if(i != 0){
                             let before = result[i-1].time;
                             let time_before = before.getFullYear() + " - " + before.getMonth();
                             let time_current = time.getFullYear() + " - " + time.getMonth();
     
-                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_name != result[i-1].sensor_name) ) &&  ( (result[i].sensor_name.substr(0,3) != "OAQ") || (result[i].sensor_name.substr(0,3) != "CLA") ) ){
+                            if( ( (time_before != time_current) || (result[i].parameter != result[i-1].parameter) || (result[i].sensor_id != result[i-1].sensor_id) ) ){
                                 let mean = sum/count;
                                 
                                 if(isNaN(mean) || mean == 0){continue;} // :)
                                 
-                                db.query('INSERT INTO monthly_mean (value,parameter,unit,time,sensor_name) VALUES (?,?,?,?,?)',
-                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_name],
+                                db.query('INSERT INTO monthly_mean (value,parameter,unit,time,sensor_id) VALUES (?,?,?,?,?)',
+                                [mean,result[i-1].parameter,result[i-1].unit,result[i-1].time,result[i-1].sensor_id],
                                 (err,result) => {
                                     if(err){
                                         console.log(err)
@@ -815,7 +940,8 @@ app.use(express.json())
             CLARITY_sensors_update();
             DST_sensors_update();
             TSI_sensors_update();
-        }
+            PURPLEAIR_sensors_update();
+        };
 
         //Output latitude and longitude for every sensor
         async function lat_and_long_out(){
@@ -849,6 +975,7 @@ app.use(express.json())
             while(true){
               await new Promise(resolve => setTimeout(resolve, 600000));
               OPENAQ_db_add();
+              PURPLEAIR_db_add();
               CLARITY_db_add();
               DST_db_add();
               TSI_db_add();
@@ -862,6 +989,32 @@ app.use(express.json())
             hourly_mean_add();
             daily_mean_add();
             monthly_mean_add();
+        };
+
+        //Change specific row 
+        async function change_row(){
+            /*
+            db.query('SELECT * FROM `sensors`',
+            (err,result) => {
+                if(err){
+                    console.log(err)
+                }
+                for(let i = 0; i < result.length; i++){
+                    console.log(result[i].latitude + "," + result[i].longitude);
+                }
+    
+            });
+            */
+            
+            db.query('UPDATE sensors SET street = "382 Pilgrim Ave", zip_code = "48009" WHERE sensor_id = "261250001P" ',
+                                    (err,result) => {
+                                        if(err){
+                                            console.log(err)
+                                        }
+                                    }
+                                )
+            
+            
         }
 
     //Helpers
@@ -869,6 +1022,7 @@ app.use(express.json())
 //FUNCTIONS END HERE 
 
 //OPENAQ_db_add();
+//PURPLEAIR_db_add();
 //CLARITY_db_add();
 //DST_db_add();
 //TSI_db_add();
@@ -877,8 +1031,9 @@ app.use(express.json())
 //hourly_mean_add();
 //daily_mean_add();
 //monthly_mean_add();
-calculate_averages();
+//calculate_averages();
 
+change_row();
 //add_sensors();
 
 /*

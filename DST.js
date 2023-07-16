@@ -10,7 +10,7 @@ export const DST_Sensors = [
     'PDPpH0pXXIhzOBPqIks30OoNPFFZi1fL',
     'i6bTtM_KrbCGTq7Eg06ZXtopUOUNrHJb',
     'fyhjiwaiIWfwQvw7-WLp88ngA6mLCkwA',
-    'iOYFmSXb3fgXlNIGfEnCVD76vVJ1Dcs3',
+    'P6B-Rq0diTHCDFvnMVEKhKZSJ93OiTi4',
     'zTbbd_PIkP0GbGSrUlaRENOjlVmYsqUv',
     'UJAP0ynm2WFA55mP09y9xo-VfocL-6Nn',
 ] 
