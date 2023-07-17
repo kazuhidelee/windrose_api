@@ -1006,7 +1006,7 @@ app.use(express.json())
             });
             */
             
-            db.query('UPDATE sensors SET street = "382 Pilgrim Ave", zip_code = "48009" WHERE sensor_id = "261250001P" ',
+            db.query('UPDATE sensors SET street = "43234 Bockley Dr", zip_code = "48313" WHERE sensor_id = "260990027P" ',
                                     (err,result) => {
                                         if(err){
                                             console.log(err)
