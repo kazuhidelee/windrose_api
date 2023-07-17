@@ -62,34 +62,32 @@ app.get("/parameterList", async (req, res) => {
 // For pollutant map, one feature for each sensor and most recent measurements for all pollutants
 // Also returns some sensor information
 app.get("/mapData", async (req, res) => {
-    // TODO: when sensor_name is replaced by sensor ID in the db, update this func
-
     // SQL command to get most recent measurements for each parameter at every sensor location
-    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_name, latitude, longitude, source FROM MRAPID.measurements t ";
-    query += "INNER JOIN MRAPID.sensors ON t.sensor_name = sensors.sensor_name ";
+    var query = "SELECT value, t.parameter, t.unit, t.time, sensor_name, latitude, longitude, source FROM MRAPID.measurements t ";
+    query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
 
-    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_name FROM MRAPID.measurements ";
+    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.measurements ";
     recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
-    recents += "GROUP BY parameter , sensor_name , unit";
+    recents += "GROUP BY parameter , sensor_id , unit";
     query += "JOIN ( " + recents + " ) recents ";
 
-    query += "ON t.sensor_name = recents.sensor_name AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
+    query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
     query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
 
     /* SQL query nicely formatted
-        SELECT value, t.parameter, t.unit, t.time, t.sensor_name, latitude, longitude, source
+        SELECT value, t.parameter, t.unit, t.time, sensor_name, latitude, longitude, source
         FROM measurements t
         INNER JOIN
             sensors 
-        ON t.sensor_name = sensors.sensor_name
+        ON t.sensor_id = sensors.sensor_id
         JOIN (
             SELECT 
-                parameter, unit, MAX(time) latest_time, sensor_name
+                parameter, unit, MAX(time) latest_time, sensor_id
             FROM measurements
             WHERE		unit='µg/m³' OR unit='ppm' OR unit='ppb'
-            GROUP BY parameter , sensor_name , unit
+            GROUP BY parameter , sensor_id , unit
             ) recents
-        ON t.sensor_name = recents.sensor_name
+        ON t.sensor_id = recents.sensor_id
         AND t.time = recents.latest_time
         AND t.parameter = recents.parameter
         WHERE		t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'
@@ -216,13 +214,13 @@ app.get("/latest:pollutant", async (req, res) => {
     
     // SQL command to get most recent measurements for a specific parameter
     var query = "SELECT value, parameter, unit, time, latitude, longitude FROM MRAPID.measurements t ";
-    const join_lat_long = "INNER JOIN MRAPID.sensors ON t.sensor_name = MRAPID.sensors.sensor_name ";
+    const join_lat_long = "INNER JOIN MRAPID.sensors ON t.sensor_id = MRAPID.sensors.sensor_id ";
     query += join_lat_long;
 
-    const recents = "SELECT sensor_name, MAX(time) latest_time FROM MRAPID.measurements WHERE parameter = ? AND unit = '" + unit + "' GROUP BY sensor_name ";
+    const recents = "SELECT sensor_id, MAX(time) latest_time FROM MRAPID.measurements WHERE parameter = ? AND unit = '" + unit + "' GROUP BY sensor_id ";
     query += "JOIN ( " + recents + " ) recents ";
 
-    query += "ON t.sensor_name = recents.sensor_name AND t.time = recents.latest_time ";
+    query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time ";
     query = query + "WHERE t.parameter = ? AND unit = '" + unit + "'";
 
     /* SQL query nicely formatted, example using PM 2.5
@@ -231,15 +229,15 @@ app.get("/latest:pollutant", async (req, res) => {
         FROM
             measurements t
                 INNER JOIN
-            sensors ON t.sensor_name = sensors.sensor_name
+            sensors ON t.sensor_id = sensors.sensor_id
                 JOIN
             (SELECT 
-                sensor_name, MAX(time) latest_time
+                sensor_id, MAX(time) latest_time
             FROM
                 measurements
             WHERE
                 parameter = 'pm2.5' AND unit = 'µg/m³'
-            GROUP BY sensor_name) recents ON t.sensor_name = recents.sensor_name
+            GROUP BY sensor_id) recents ON t.sensor_id = recents.sensor_id
                 AND t.time = recents.latest_time
         WHERE
             t.parameter = 'pm2.5' AND unit = 'µg/m³'
