@@ -63,7 +63,7 @@ app.get("/parameterList", async (req, res) => {
 // Also returns some sensor information
 app.get("/mapData", async (req, res) => {
     // SQL command to get most recent measurements for each parameter at every sensor location
-    var query = "SELECT value, t.parameter, t.unit, t.time, sensor_name, latitude, longitude, source FROM MRAPID.measurements t ";
+    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM MRAPID.measurements t ";
     query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
 
     var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.measurements ";
@@ -75,7 +75,7 @@ app.get("/mapData", async (req, res) => {
     query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
 
     /* SQL query nicely formatted
-        SELECT value, t.parameter, t.unit, t.time, sensor_name, latitude, longitude, source
+        SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
         FROM measurements t
         INNER JOIN
             sensors 
@@ -121,7 +121,8 @@ app.get("/mapData", async (req, res) => {
                         },
                         "info": {
                             "sensorID": ____,
-                            "source": OPENAQ/CLARITY/DST/TSI
+                            "sensorName": ____,
+                            "source": OPENAQ/PURPLEAIR/CLARITY/DST/TSI
                         }
                     }
                  }
@@ -141,19 +142,20 @@ app.get("/mapData", async (req, res) => {
                     "properties": {}
                 };
 
-                var curr_sensor_name = results[0].sensor_name;
-                var prev_sensor_name = results[0].sensor_name;
+                var curr_sensor_id = results[0].sensor_id;
+                var prev_sensor_id = results[0].sensor_id;
 
                 for (var i = 0; i < results.length; ++i) {
-                    curr_sensor_name = results[i].sensor_name;
+                    curr_sensor_id = results[i].sensor_id;
 
-                    if(curr_sensor_name != prev_sensor_name){ // reached a new sensor
+                    if(curr_sensor_id != prev_sensor_id){ // reached a new sensor
                         // close out the old feature
                         var prev;
                         if(i == 0) prev = 0;
                         else prev = i - 1;
                         sensorFeature['properties']['info'] = {
-                            "sensorID": results[prev].sensor_name,
+                            "sensorID": results[prev].sensor_id,
+                            "sensorName": results[prev].sensor_name,
                             "source": results[prev].source
                         };
 
@@ -185,12 +187,13 @@ app.get("/mapData", async (req, res) => {
                         "unit": results[i].unit
                     };
 
-                    prev_sensor_name = curr_sensor_name;
+                    prev_sensor_id = curr_sensor_id;
                 }
 
                 // close out last feature
                 sensorFeature['properties']['info'] = {
-                    "sensorID": results[results.length - 1].sensor_name,
+                    "sensorID": results[results.length - 1].sensor_id,
+                    "sensorName": results[results.length - 1].sensor_name,
                     "source": results[results.length - 1].source
                 };
                 geojson['features'].push(sensorFeature);
