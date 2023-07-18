@@ -289,10 +289,46 @@ app.get("/latest:pollutant", async (req, res) => {
     }
 });
 
+// Returns all sensors in one specified zipcode with one specified pollutant 
+// ex: http://localhost:8080/sensor?pollutant=pm2.5&zip_code=48209
+// not sure long/lat is necessary delete if it isn't needed 
+app.get("/sensor", async (req, res) => {
+    console.log(req.query.zip_code);
+    console.log(req.query.pollutant)
+    const query = " SELECT DISTINCT MRAPID.sensors.sensor_id, sensor_name, latitude, longitude" +
+                  " FROM MRAPID.measurements " + 
+                  " LEFT JOIN MRAPID.sensors ON MRAPID.measurements.sensor_id = MRAPID.sensors.sensor_id " +
+                  " WHERE (zip_code = ? AND parameter = ?)";
+
+    try{
+        pool.query(query, [req.query.zip_code, req.query.pollutant], (error, results) => {
+            console.log(results);
+            if(!results[0]){ // No results
+                res.json({ status: "Not found" });
+            } else{
+                // Return relevant sensors
+                var sensors = [];
+                for (var i = 0; i < results.length; ++i) {
+                    var newSensor = {
+                        'name' : results[i].sensor_name,
+                        'id' : results[i].sensor_id,
+                        'longitude' : results[i].longitude,
+                        'latitude' : results[i].latitude
+                    }
+                    sensors.push(newSensor);
+                }
+                var output = {"SensorList" : sensors};
+                res.status(200).json(output);
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
 
 /*
-TODO:: ADD HUMAN FRIENDLY LOCATION INFO WHEN IT'S AVAILABLE ie not long-lat, maybe zip code or county? or x miles from address (maybe see if it's possible figure out how to calculate long/lat given address--there's probably a library somewhere??)
-ALSO, include: time to time?? parameters
+    might delete/heavily rework, currently not really useful.
     Returns data on a single pollutant in the last specified timeframe (hour, day, week, month, year) in chronological order
     Default is all pollutants, day
     meant for users/ presenting data as table, not for map; does not return in geojson format
