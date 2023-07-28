@@ -207,7 +207,8 @@ app.get("/mapData", async (req, res) => {
     }
 });
 
-// For pollutant map, one feature for each sensor and most recent measurements for all pollutants
+// Same as /mapData but gets most recent calculated AQI instead of recent measurments
+// For pollutant map, one feature for each sensor and most recent calculared AQIs for all pollutants
 // Also returns some sensor information
 app.get("/mapAQIData", async (req, res) => {
     // SQL command to get most recent measurements for each parameter at every sensor location
