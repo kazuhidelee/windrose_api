@@ -207,6 +207,154 @@ app.get("/mapData", async (req, res) => {
     }
 });
 
+// For pollutant map, one feature for each sensor and most recent measurements for all pollutants
+// Also returns some sensor information
+app.get("/mapAQIData", async (req, res) => {
+    // SQL command to get most recent measurements for each parameter at every sensor location
+    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM MRAPID.AQI t ";
+    query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
+
+    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.AQI ";
+    recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
+    recents += "GROUP BY parameter , sensor_id , unit";
+    query += "JOIN ( " + recents + " ) recents ";
+
+    query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
+    query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
+
+    /* SQL query nicely formatted
+        SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
+        FROM AQI t
+        INNER JOIN
+            sensors 
+        ON t.sensor_id = sensors.sensor_id
+        JOIN (
+            SELECT 
+                parameter, unit, MAX(time) latest_time, sensor_id
+            FROM AQI
+            WHERE		unit='µg/m³' OR unit='ppm' OR unit='ppb'
+            GROUP BY parameter , sensor_id , unit
+            ) recents
+        ON t.sensor_id = recents.sensor_id
+        AND t.time = recents.latest_time
+        AND t.parameter = recents.parameter
+        WHERE		t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'
+    */
+
+    try{
+        pool.query(query, [], (error, results) => {
+            if(!results[0]){ // No results
+                res.json({ status: "Not found" });
+            } else{
+                // Return measurements in a Feature Collection
+                var geojson = {};
+                geojson['type'] = 'FeatureCollection';
+                geojson['features'] = [];
+
+                /* Feature format:
+                 {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [longitude, latitude]
+                    },
+                    "properties": {
+                        [param1 name]: {
+                            "value": ___,
+                            "aqi": ___
+                        },
+                        [param2 name]: {
+                            "value": ___,
+                            "aqi": ___
+                        },
+                        "info": {
+                            "sensorID": ____,
+                            "sensorName": ____,
+                            "source": OPENAQ/PURPLEAIR/CLARITY/DST/TSI
+                        }
+                    }
+                 }
+                 */
+
+                var lat = Number(results[0].latitude);
+                var long = Number(results[0].longitude);
+                var lat_rounded = lat.toFixed(4);
+                var long_rounded = long.toFixed(4);
+
+                var sensorFeature = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [long_rounded, lat_rounded]
+                    },
+                    "properties": {}
+                };
+
+                var curr_sensor_id = results[0].sensor_id;
+                var prev_sensor_id = results[0].sensor_id;
+
+                for (var i = 0; i < results.length; ++i) {
+                    curr_sensor_id = results[i].sensor_id;
+
+                    if(curr_sensor_id != prev_sensor_id){ // reached a new sensor
+                        // close out the old feature
+                        var prev;
+                        if(i == 0) prev = 0;
+                        else prev = i - 1;
+                        sensorFeature['properties']['info'] = {
+                            "sensorID": results[prev].sensor_id,
+                            "sensorName": results[prev].sensor_name,
+                            "source": results[prev].source
+                        };
+
+                        geojson['features'].push(sensorFeature);
+
+                        // start a new feature. need new var to prevent reference to same obj
+                        var newFeature = {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": []
+                            },
+                            "properties": {}
+                        };
+                        sensorFeature = newFeature;
+
+                        // round latitude and longitude coordinates to 4 decimal places
+                        var lat = Number(results[i].latitude);
+                        var long = Number(results[i].longitude);
+                        var lat_rounded = lat.toFixed(4);
+                        var long_rounded = long.toFixed(4);
+                        sensorFeature['geometry']['coordinates'] = [long_rounded, lat_rounded];
+                    } 
+
+                    // add the parameter, measurement, and unit
+                    var param = results[i].parameter;
+                    sensorFeature['properties'][param] = {
+                        "value": Number(results[i].value).toFixed(0), // round measurements to whole number
+                        "unit": results[i].unit
+                    };
+
+                    prev_sensor_id = curr_sensor_id;
+                }
+
+                // close out last feature
+                sensorFeature['properties']['info'] = {
+                    "sensorID": results[results.length - 1].sensor_id,
+                    "sensorName": results[results.length - 1].sensor_name,
+                    "source": results[results.length - 1].source
+                };
+                geojson['features'].push(sensorFeature);
+
+                res.status(200).json(geojson);
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
+
 // For each monitor, get most recent value of a specific pollutant
 // Request link format is "[server]/latest[pollutant]". ex: http://localhost:8080/latestpm2.5
 app.get("/latest:pollutant", async (req, res) => {
@@ -293,8 +441,8 @@ app.get("/latest:pollutant", async (req, res) => {
 // ex: http://localhost:8080/sensor?pollutant=pm2.5&zip_code=48209
 // not sure long/lat is necessary delete if it isn't needed 
 app.get("/sensor", async (req, res) => {
-    console.log(req.query.zip_code);
-    console.log(req.query.pollutant)
+    //console.log(req.query.zip_code);
+    //console.log(req.query.pollutant)
     const query = " SELECT DISTINCT MRAPID.sensors.sensor_id, sensor_name, latitude, longitude" +
                   " FROM MRAPID.measurements " + 
                   " LEFT JOIN MRAPID.sensors ON MRAPID.measurements.sensor_id = MRAPID.sensors.sensor_id " +
@@ -302,7 +450,7 @@ app.get("/sensor", async (req, res) => {
 
     try{
         pool.query(query, [req.query.zip_code, req.query.pollutant], (error, results) => {
-            console.log(results);
+            //console.log(results);
             if(!results[0]){ // No results
                 res.json({ status: "Not found" });
             } else{
