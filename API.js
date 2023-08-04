@@ -28,11 +28,26 @@ app.get("/", async (req, res) => {
 
 // Returns a list of all the parameters we have measurements for in units of µg/m³, ppm, or ppb
 app.get("/parameterList", async (req, res) => {
-    const query = "SELECT DISTINCT parameter, unit FROM MRAPID.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb'";
+    const query = "SELECT DISTINCT parameter, unit FROM MRAPID.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³'";
+
+    // create map for parameters and display names
+    var displayNames = new Map([
+        ["pm0.5", "PM 0.5"],
+        ["pm1", "PM 1"],
+        ["pm2.5", "PM 2.5"],
+        ["pm4", "PM 4"],
+        ["pm10", "PM 10"],
+        ["Black C", "Black Carbon"],
+        ["SO2", "SO₂"],
+        ["O3", "O₃"],
+        ["NO2", "NO₂"],
+        ["CO2", "CO₂"]
+    ]);
 
     try{
         pool.query(query, [], (error, results) => {
-            if(!results[0]){ // No results
+            if(!results) res.status(500).json({ message: "Error querying the database" });
+            else if(!results[0]){ // No results
                 res.json({ status: "Not found" });
             } else{
                 // Return measurements in a Feature Collection
@@ -40,11 +55,15 @@ app.get("/parameterList", async (req, res) => {
                 allParams['results'] = [];
                 
                 for(var i = 0; i < results.length; ++i){
+                    var displayName;
+                    if(displayNames.has(results[i].parameter)) displayName = displayNames.get(results[i].parameter);
+                    else displayName = results[i].parameter;
+                    
                     var param = {
                         "id": i + 1,
                         "name": results[i].parameter,
                         "units": results[i].unit,
-                        "displayName": results[i].parameter
+                        "displayName": displayName
                     };
                     
                     allParams['results'].push(param);
@@ -67,12 +86,12 @@ app.get("/mapData", async (req, res) => {
     query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
 
     var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.measurements ";
-    recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
+    recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ";
     recents += "GROUP BY parameter , sensor_id , unit";
     query += "JOIN ( " + recents + " ) recents ";
 
     query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
-    query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
+    query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³'";
 
     /* SQL query nicely formatted
         SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
@@ -84,13 +103,13 @@ app.get("/mapData", async (req, res) => {
             SELECT 
                 parameter, unit, MAX(time) latest_time, sensor_id
             FROM measurements
-            WHERE		unit='µg/m³' OR unit='ppm' OR unit='ppb'
+            WHERE		unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³'
             GROUP BY parameter , sensor_id , unit
             ) recents
         ON t.sensor_id = recents.sensor_id
         AND t.time = recents.latest_time
         AND t.parameter = recents.parameter
-        WHERE		t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'
+        WHERE		t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³'
     */
 
     try{
@@ -182,8 +201,12 @@ app.get("/mapData", async (req, res) => {
 
                     // add the parameter, measurement, and unit
                     var param = results[i].parameter;
+                    var value_rounded;
+                    if(param == "Black C") value_rounded = Number(results[i].value).toFixed(1); // black carbon 1 decimal
+                    else value_rounded = Number(results[i].value).toFixed(0); // everything else whole number
+
                     sensorFeature['properties'][param] = {
-                        "value": Number(results[i].value).toFixed(0), // round measurements to whole number
+                        "value": value_rounded,
                         "unit": results[i].unit
                     };
 
@@ -356,27 +379,35 @@ app.get("/mapAQIData", async (req, res) => {
     }
 });
 
-// For each monitor, get most recent value of a specific pollutant
-// Request link format is "[server]/latest[pollutant]". ex: http://localhost:8080/latestpm2.5
-app.get("/latest:pollutant", async (req, res) => {
-    // Define measurement unit based on requested pollutant
-    var unit = "";
-    if(req.params.pollutant == "pm1" || req.params.pollutant == "pm2.5" || req.params.pollutant == "pm10") unit = "µg/m³";
-    else unit = "ppm";
+// For each monitor, get most recent value of a specific pollutant and unit
+// Request link format is "[server]/latest?pollutant=[pollutant]&unit=[unit]". ex: http://localhost:8080/latest?pollutant=pm2.5&unit=ug/m3
+// Parameters: Use BlackC for Black Carbon
+// Units: Use ug/m3 for µg/m³, p/cm3 for particles/cm³, and ppm or ppb for those.
+app.get("/latest", async (req, res) => {
+    // Format param for SQL request
+    var pollutant;
+    if(req.query.pollutant == "BlackC") pollutant = "Black C";
+    else pollutant = req.query.pollutant;
+
+    // Format unit for SQL request
+    var unit;
+    if(req.query.unit == "ug/m3") unit = "µg/m³";
+    else if(req.query.unit == "p/cm3") unit = "particles/cm³";
+    else unit = req.query.unit;
     
     // SQL command to get most recent measurements for a specific parameter
-    var query = "SELECT value, parameter, unit, time, latitude, longitude FROM MRAPID.measurements t ";
+    var query = "SELECT DISTINCT value, parameter, unit, time, latitude, longitude FROM MRAPID.measurements t ";
     const join_lat_long = "INNER JOIN MRAPID.sensors ON t.sensor_id = MRAPID.sensors.sensor_id ";
     query += join_lat_long;
 
-    const recents = "SELECT sensor_id, MAX(time) latest_time FROM MRAPID.measurements WHERE parameter = ? AND unit = '" + unit + "' GROUP BY sensor_id ";
+    const recents = "SELECT sensor_id, MAX(time) latest_time FROM MRAPID.measurements WHERE parameter = ? AND unit = ? GROUP BY sensor_id ";
     query += "JOIN ( " + recents + " ) recents ";
 
     query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time ";
-    query = query + "WHERE t.parameter = ? AND unit = '" + unit + "'";
+    query = query + "WHERE t.parameter = ? AND unit = ?";
 
     /* SQL query nicely formatted, example using PM 2.5
-        SELECT 
+        SELECT DISTINCT
             value, parameter, unit, time, latitude, longitude
         FROM
             measurements t
@@ -395,7 +426,7 @@ app.get("/latest:pollutant", async (req, res) => {
             t.parameter = 'pm2.5' AND unit = 'µg/m³'
     */
     try{
-        pool.query(query, [ req.params.pollutant, req.params.pollutant ], (error, results) => {
+        pool.query(query, [ pollutant, unit, pollutant, unit ], (error, results) => {
             if(!results[0]){ // No results
                 res.json({ status: "Not found" });
             } else{
@@ -405,8 +436,6 @@ app.get("/latest:pollutant", async (req, res) => {
                 geojson['features'] = [];
                 
                 for (var i = 0; i < results.length; ++i) {
-                    //var param = results[i].parameter;
-
                     // round latitude and longitude coordinates to 4 decimal places
                     var lat = Number(results[i].latitude);
                     var long = Number(results[i].longitude);
@@ -414,7 +443,9 @@ app.get("/latest:pollutant", async (req, res) => {
                     var long_rounded = long.toFixed(4);
 
                     // round measurements to whole number
-                    var value = Number(results[i].value).toFixed(0);
+                    var value;
+                    if(pollutant == "Black C") value = Number(results[i].value).toFixed(1);
+                    else value = Number(results[i].value).toFixed(0);
 
                     var newFeature = {
                         "type": "Feature",
@@ -428,7 +459,7 @@ app.get("/latest:pollutant", async (req, res) => {
                     }
                     geojson['features'].push(newFeature);
                 }
-                
+
                 res.status(200).json(geojson);
             }
         });
