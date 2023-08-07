@@ -12,6 +12,7 @@ app.listen(PORT, () => {
 });
 
 // Connect to the database
+
 const pool = mysql.createPool({
     user: 'root',
     password: 'mrapid123',
@@ -19,6 +20,15 @@ const pool = mysql.createPool({
     socketPath: '/cloudsql/mrapid:us-central1:mrapid',
 })
 
+//This is for Yash's testing
+/* 
+const pool = mysql.createPool({
+    user: 'root',
+    host: 'localhost',
+    password: '',
+    database: 'MRAPID',
+});
+*/
 
 // Routes
 // Home, test response
@@ -482,7 +492,7 @@ app.get("/sensor", async (req, res) => {
 
     try{
         pool.query(query, [req.query.zip_code, req.query.pollutant], (error, results) => {
-            //console.log(results);
+            console.log(results);
             if(!results[0]){ // No results
                 res.json({ status: "Not found" });
             } else{
@@ -598,6 +608,36 @@ app.get("/data", async (req, res) => {
                 };
                 res.status(200).json(output);
 
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
+
+//gets all unique zipcodes in the database
+// ex: http://localhost:8080/zipcodes
+app.get("/zipcodes",async (req,res) => {
+    const query = "SELECT DISTINCT zip_code FROM Sensors;"
+    
+    try{
+        pool.query(query, [], (error, results) => {
+
+            if(!results[0]){ // No results
+                res.json({ status: "Not found" });
+            } else{
+                // Return relevant zipcodes
+                var zip_codes = [];
+                for (var i = 0; i < results.length; ++i) {
+                    if(results[i].zip_code == "N/A"){continue;} //Some zips are N/A beacuse Not a single reverse Geocoding API I used could find them, I didnt input them in manually but they wont show up here
+                    var newZip = {
+                        'zip_code' : results[i].zip_code,
+                    }
+                    zip_codes.push(newZip);
+                }
+                var output = {"zipcode_list" : zip_codes};
+                res.status(200).json(output);
             }
         });
     } catch(error){
