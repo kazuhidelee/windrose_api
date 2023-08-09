@@ -619,7 +619,7 @@ app.get("/data", async (req, res) => {
 //gets all unique zipcodes in the database
 // ex: http://localhost:8080/zipcodes
 app.get("/zipcodes",async (req,res) => {
-    const query = "SELECT DISTINCT zip_code FROM Sensors;"
+    const query = "SELECT DISTINCT zip_code FROM MRAPID.Sensors;"
     
     try{
         pool.query(query, [], (error, results) => {
