@@ -12,23 +12,12 @@ app.listen(PORT, () => {
 });
 
 // Connect to the database
-
 const pool = mysql.createPool({
     user: 'root',
     password: 'mrapid123',
     database: 'MRAPID',
     socketPath: '/cloudsql/mrapid:us-central1:mrapid',
 })
-
-//This is for Yash's testing
-/* 
-const pool = mysql.createPool({
-    user: 'root',
-    host: 'localhost',
-    password: '',
-    database: 'MRAPID',
-});
-*/
 
 // Routes
 // Home, test response
@@ -80,6 +69,36 @@ app.get("/parameterList", async (req, res) => {
                 }
 
                 res.status(200).json(allParams);
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
+
+//gets all unique zipcodes in the database
+// ex: http://localhost:8080/zipcodes
+app.get("/zipcodes",async (req,res) => {
+    const query = "SELECT DISTINCT zip_code FROM MRAPID.sensors"
+    
+    try{
+        pool.query(query, [], (error, results) => {
+
+            if(!results[0]){ // No results
+                res.json({ status: "Not found" });
+            } else{
+                // Return relevant zipcodes
+                var zip_codes = [];
+                for (var i = 0; i < results.length; ++i) {
+                    if(results[i].zip_code == "N/A"){continue;} //Some zips are N/A beacuse Not a single reverse Geocoding API I used could find them, I didnt input them in manually but they wont show up here
+                    var newZip = {
+                        'zip_code' : results[i].zip_code,
+                    }
+                    zip_codes.push(newZip);
+                }
+                var output = {"zipcode_list" : zip_codes};
+                res.status(200).json(output);
             }
         });
     } catch(error){
@@ -389,14 +408,51 @@ app.get("/mapAQIData", async (req, res) => {
     }
 });
 
+// Returns all sensors in one specified zipcode with one specified pollutant 
+// ex: http://localhost:8080/sensor?pollutant=pm2.5&zip_code=48209
+// not sure long/lat is necessary delete if it isn't needed 
+app.get("/sensor", async (req, res) => {
+    const query = " SELECT DISTINCT MRAPID.sensors.sensor_id, sensor_name, latitude, longitude" +
+                  " FROM MRAPID.measurements " + 
+                  " LEFT JOIN MRAPID.sensors ON MRAPID.measurements.sensor_id = MRAPID.sensors.sensor_id " +
+                  " WHERE (zip_code = ? AND parameter = ?)";
+
+    try{
+        pool.query(query, [req.query.zip_code, req.query.pollutant], (error, results) => {
+            console.log(results);
+            if(!results) res.status(500).json({ message: "Error with the database query" });
+            else if(!results[0]){ // No results
+                res.json({ status: "Not found" });
+            } else{
+                // Return relevant sensors
+                var sensors = [];
+                for (var i = 0; i < results.length; ++i) {
+                    var newSensor = {
+                        'name' : results[i].sensor_name,
+                        'id' : results[i].sensor_id,
+                        'longitude' : results[i].longitude,
+                        'latitude' : results[i].latitude
+                    }
+                    sensors.push(newSensor);
+                }
+                var output = {"SensorList" : sensors};
+                res.status(200).json(output);
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
+
 // For each monitor, get most recent value of a specific pollutant and unit
 // Request link format is "[server]/latest?pollutant=[pollutant]&unit=[unit]". ex: http://localhost:8080/latest?pollutant=pm2.5&unit=ug/m3
-// Parameters: Use BlackC for Black Carbon
+// Parameters: Use BC for Black Carbon
 // Units: Use ug/m3 for µg/m³, p/cm3 for particles/cm³, and ppm or ppb for those.
 app.get("/latest", async (req, res) => {
     // Format param for SQL request
     var pollutant;
-    if(req.query.pollutant == "BlackC") pollutant = "Black C";
+    if(req.query.pollutant == "BC") pollutant = "Black C";
     else pollutant = req.query.pollutant;
 
     // Format unit for SQL request
@@ -437,7 +493,8 @@ app.get("/latest", async (req, res) => {
     */
     try{
         pool.query(query, [ pollutant, unit, pollutant, unit ], (error, results) => {
-            if(!results[0]){ // No results
+            if(!results) res.status(500).json({ message: "Error with the database query" });
+            else if(!results[0]){ // No results
                 res.json({ status: "Not found" });
             } else{
                 // Return measurements in a Feature Collection
@@ -471,44 +528,6 @@ app.get("/latest", async (req, res) => {
                 }
 
                 res.status(200).json(geojson);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
-});
-
-// Returns all sensors in one specified zipcode with one specified pollutant 
-// ex: http://localhost:8080/sensor?pollutant=pm2.5&zip_code=48209
-// not sure long/lat is necessary delete if it isn't needed 
-app.get("/sensor", async (req, res) => {
-    //console.log(req.query.zip_code);
-    //console.log(req.query.pollutant)
-    const query = " SELECT DISTINCT MRAPID.sensors.sensor_id, sensor_name, latitude, longitude" +
-                  " FROM MRAPID.measurements " + 
-                  " LEFT JOIN MRAPID.sensors ON MRAPID.measurements.sensor_id = MRAPID.sensors.sensor_id " +
-                  " WHERE (zip_code = ? AND parameter = ?)";
-
-    try{
-        pool.query(query, [req.query.zip_code, req.query.pollutant], (error, results) => {
-            console.log(results);
-            if(!results[0]){ // No results
-                res.json({ status: "Not found" });
-            } else{
-                // Return relevant sensors
-                var sensors = [];
-                for (var i = 0; i < results.length; ++i) {
-                    var newSensor = {
-                        'name' : results[i].sensor_name,
-                        'id' : results[i].sensor_id,
-                        'longitude' : results[i].longitude,
-                        'latitude' : results[i].latitude
-                    }
-                    sensors.push(newSensor);
-                }
-                var output = {"SensorList" : sensors};
-                res.status(200).json(output);
             }
         });
     } catch(error){
@@ -578,7 +597,8 @@ app.get("/data", async (req, res) => {
             console.log("results");
             console.log(results);
             //res.status(200).json({"results": date});
-            if(!results[0]){ // No results
+            if(!results) res.status(500).json({ message: "Error with the database query" });
+            else if(!results[0]){ // No results
                 res.json({ status: "No results" });
             } else{
                 var output = {};
@@ -616,27 +636,103 @@ app.get("/data", async (req, res) => {
     }
 });
 
-//gets all unique zipcodes in the database
-// ex: http://localhost:8080/zipcodes
-app.get("/zipcodes",async (req,res) => {
-    const query = "SELECT DISTINCT zip_code FROM MRAPID.sensors"
-    
-    try{
-        pool.query(query, [], (error, results) => {
+/* Returns data for a specific monitor and pollutant between two specified dates (inclusive)
+    Request link format is "[server]/history?sensor=[sensorID]&pollutant=[pollutant]&unit=[unit]&start=[time]&end=[time]&step=[h/d/m]".
+    Required:
+        Sensor - sensor ID
+        Pollutant - format as in db except use BC for Black Carbon
+        Unit - for µg/m³, use ug/m3. For particles/cm³, use p/cm3. For ppb and ppm, use as is.
+    Optional:
+        Start - format yyyy-mm-dd. Default is 1/1/2023 (no data in the database before this date)
+        End - format yyyy-mm-dd. Default is current day
+        Step - use h for hourly, d for daily, m for monthly. Default is hourly
+    ex: http://localhost:8080/history?sensor=260990004O&pollutant=pm2.5&unit=ug/m3&start=2023-07-01&end=2023-07-07&step=d
+    Return format:
+        {
+            "sensorInfo": {
+                "sensorID":
+                "sensorName":
+                "pollutant":
+                "unit":
+            }, 
+            "results": [
+                {
+                    "time": 2023-06-28T00:00:00.000Z,
+                    "value": ___
+                },
+                {
+                    "time": 2023-06-28T01:00:00.000Z,
+                    "value": ___
+                },
+            ]
+        }
+*/
+app.get("/history", async (req, res) => {
+    if(!req.query.sensor || !req.query.pollutant || !req.query.unit){ // error handling for required params
+        res.status(200).json({ message: "Must specify sensor ID, pollutant, and unit in the endpoint" });
+        return;
+    }
 
-            if(!results[0]){ // No results
-                res.json({ status: "Not found" });
+    var table;
+    if(req.query.step == 'h') table = "hourly_mean";
+    else if(req.query.step == 'd') table = "daily_mean";
+    else if(req.query.step == 'm') table = "monthly_mean";
+    else table = "hourly_mean"; // default
+
+    var query = "SELECT value, time, parameter, unit, t.sensor_id, sensor_name FROM MRAPID." + table + " t ";
+    query += "JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
+    query += "WHERE time BETWEEN ? AND ? AND t.sensor_id = ? AND parameter = ? AND unit = ? ORDER BY time";
+
+    var pollutant;
+    if(req.query.pollutant == "BC") pollutant = "Black C";
+    else pollutant = req.query.pollutant;
+
+    var start;
+    if(req.query.start) start = req.query.start;
+    else start = "2023-01-01";
+
+    var end;
+    if(req.query.end) end = req.query.end;
+    else{ // today's date
+        let date = new Date();
+        let day = ("0" + date.getDate()).slice(-2); // adjust 0 before single digit date
+        let month = ("0" + (date.getMonth() + 1)).slice(-2); // adjust 0 before single digit month
+        end = date.getFullYear() + "-" + month + "-" + day;
+    }
+
+    // request won't register with formatting of the cubic m/cm directly in the endpoint link
+    var formatted_unit;
+    if(req.query.unit == 'ug/m3') formatted_unit = 'µg/m³';
+    else if(req.query.unit == "p/cm3") formatted_unit = 'particles/cm³';
+    else formatted_unit = req.query.unit;
+
+    var params = [start, end, req.query.sensor, pollutant, formatted_unit];
+
+    try{
+        pool.query(query, params, (error, results) => {
+            if(!results) res.status(500).json({ message: "Error with the database query" });
+            else if(!results[0]){ // No results
+                res.json({ status: "No results" });
             } else{
-                // Return relevant zipcodes
-                var zip_codes = [];
-                for (var i = 0; i < results.length; ++i) {
-                    if(results[i].zip_code == "N/A"){continue;} //Some zips are N/A beacuse Not a single reverse Geocoding API I used could find them, I didnt input them in manually but they wont show up here
-                    var newZip = {
-                        'zip_code' : results[i].zip_code,
-                    }
-                    zip_codes.push(newZip);
+                var output = {};
+
+                output['sensorInfo'] = {
+                    "sensorID": results[0].sensor_id,
+                    "sensorName": results[0].sensor_name,
+                    "pollutant": results[0].parameter,
+                    "unit": formatted_unit
+                };
+
+                output['results'] = [];
+
+                for(var i = 0; i < results.length; ++i){
+                    var measurement = {
+                        "time": results[i].time,
+                        "value": results[i].value
+                    };
+                    output['results'].push(measurement);
                 }
-                var output = {"zipcode_list" : zip_codes};
+
                 res.status(200).json(output);
             }
         });
@@ -644,4 +740,5 @@ app.get("/zipcodes",async (req,res) => {
         console.error('Error querying the database: ', error);
         res.status(500).json({message: 'Error querying the database'});
     }
+
 });
