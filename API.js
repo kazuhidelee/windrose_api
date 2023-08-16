@@ -742,3 +742,90 @@ app.get("/history", async (req, res) => {
     }
 
 });
+
+// Returns all sensors of specified type(s) in specified zipcode(s) with at least one of the specified pollutant(s) 
+// If nothing is specified for one of the three parameters, there won't be filtering on that parameter
+// ex: http://localhost:8080/sensor?pollutant=pm2.5&zip_code=48209&type=OAQ
+// ex of nothing specified for zipcode or sensor type and two pollutants specified: http://localhost:8080/sensor?pollutant=pm2.5&pollutant=NO2
+// not sure long/lat is necessary delete if it isn't needed 
+app.get("/sensor", async (req, res) => {
+    console.log(typeof req.query.zip_code);
+    console.log(typeof req.query.pollutant)
+    console.log(typeof req.query.type)
+    var query = " SELECT DISTINCT MRAPID.sensors.sensor_id, sensor_name" +
+                  " FROM MRAPID.measurements " + 
+                  " LEFT JOIN MRAPID.sensors ON MRAPID.measurements.sensor_id = MRAPID.sensors.sensor_id " +
+                  " WHERE (";
+    var params = []
+    if (req.query.zip_code != null ) {
+        if (typeof req.query.zip_code == 'string') {
+            query += " zip_code = ? AND";
+            params.push(req.query.zip_code);
+        } else {
+            query += " (";
+            for (let i = 0; i < req.query.zip_code.length - 1; i++) {
+                query += " zip_code = ? OR";
+                params.push(req.query.zip_code[i]);
+            }
+            query += " zip_code = ? ) AND";
+            params.push(req.query.zip_code[req.query.zip_code.length - 1]);
+            
+        }
+    } 
+
+    if (req.query.pollutant != null) {
+        if (typeof req.query.pollutant == 'string') {
+            query += " parameter = ? AND";
+            params.push(req.query.pollutant);
+        } else {
+            query += " (";
+            for (let i = 0; i < req.query.pollutant.length - 1; i++) {
+                query +=  " parameter = ? OR";
+                params.push(req.query.pollutant[i]);
+            }
+            query +=  " parameter = ? ) AND";
+            params.push(req.query.pollutant[req.query.pollutant.length - 1]);
+        }
+    } 
+
+    if (req.query.type != null) {
+        if (typeof req.query.type == 'string') {
+            query += " sensor_name LIKE ? AND";
+            params.push("%" + req.query.type + "%");
+        } else {
+            query += " (";
+            for (let i = 0; i < req.query.type.length - 1; i++) {
+                query +=  " sensor_name LIKE ? OR";
+                params.push("%" + req.query.type[i] + "%");
+            }
+            query +=  " sensor_name LIKE ?) AND";
+            params.push("%" + req.query.type[req.query.type.length - 1] + "%");
+        }
+    } 
+
+    query += " 1 )";
+    try{
+        pool.query(query, params, (error, results) => {
+            console.log(query);
+            console.log(params);
+            if(!results[0]){ // No results
+                res.json({ status: "Not found" });
+            } else{
+                // Return relevant sensors
+                var sensors = [];
+                for (var i = 0; i < results.length; ++i) {
+                    var newSensor = {
+                        'name' : results[i].sensor_name,
+                        'id' : results[i].sensor_id,
+                    }
+                    sensors.push(newSensor);
+                }
+                var output = {"SensorList" : sensors};
+                res.status(200).json(output);
+            }
+        });
+    } catch(error){
+        console.error('Error querying the database: ', error);
+        res.status(500).json({message: 'Error querying the database'});
+    }
+});
