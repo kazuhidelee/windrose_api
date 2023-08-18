@@ -691,31 +691,27 @@ app.get("/data", async (req, res) => {
     Optional:
         Start - format yyyy-mm-dd. Default is 1/1/2023 (no data in the database before this date)
         End - format yyyy-mm-dd. Default is current day
-        Step - use h for hourly, d for daily, m for monthly. Default is hourly
+        Step - use h for hourly, d for daily, m for monthly, y for yearly. Default is hourly
     ex: http://localhost:8080/history?sensor=260990004O&pollutant=pm2.5&unit=ug/m3&start=2023-07-01&end=2023-07-07&step=d
     Return format:
         {
-            "sensorInfo": {
-                "sensorID":
-                "sensorName":
-                "pollutant":
-                "unit":
-            }, 
             "results": [
                 {
                     "time": 2023-06-28T00:00:00.000Z,
-                    "value": ___
+                    "value": ___,
+                    "sensor_id": __
                 },
                 {
                     "time": 2023-06-28T01:00:00.000Z,
-                    "value": ___
+                    "value": ___,
+                    "sensor_id": __
                 },
             ]
         }
 */
 app.get("/history", async (req, res) => {
     if(!req.query.sensor || !req.query.pollutant || !req.query.unit){ // error handling for required params
-        res.status(200).json({ message: "Must specify sensor ID, pollutant, and unit in the endpoint" });
+        res.status(200).json({ message: "Must specify sensor ID(s), pollutant, and unit in the endpoint" });
         return;
     }
 
@@ -723,11 +719,23 @@ app.get("/history", async (req, res) => {
     if(req.query.step == 'h') table = "hourly_mean";
     else if(req.query.step == 'd') table = "daily_mean";
     else if(req.query.step == 'm') table = "monthly_mean";
+    else if(req.query.step == 'y') table = "yearly_mean";
     else table = "hourly_mean"; // default
 
     var query = "SELECT value, time, parameter, unit, t.sensor_id, sensor_name FROM MRAPID." + table + " t ";
     query += "JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
-    query += "WHERE time BETWEEN ? AND ? AND t.sensor_id = ? AND parameter = ? AND unit = ? ORDER BY time";
+    query += "WHERE time BETWEEN ? AND ? AND parameter = ? AND unit = ? AND (";
+
+    // add sensors to query
+    var sensorString = req.query.sensor;
+    var sensors = sensorString.split(','); // put sensor list into array
+    for(var i = 0; i < sensors.length; ++i){
+        if(i != 0) query += " OR";
+        query += " t.sensor_id = '";
+        query += sensors[i];
+        query += "'";
+    }
+    query += " ) ORDER BY time";
 
     var pollutant;
     if(req.query.pollutant == "BC") pollutant = "Black C";
@@ -752,7 +760,7 @@ app.get("/history", async (req, res) => {
     else if(req.query.unit == "p/cm3") formatted_unit = 'particles/cm³';
     else formatted_unit = req.query.unit;
 
-    var params = [start, end, req.query.sensor, pollutant, formatted_unit];
+    var params = [start, end, pollutant, formatted_unit];
 
     try{
         pool.query(query, params, (error, results) => {
@@ -761,20 +769,13 @@ app.get("/history", async (req, res) => {
                 res.json({ status: "No results" });
             } else{
                 var output = {};
-
-                output['sensorInfo'] = {
-                    "sensorID": results[0].sensor_id,
-                    "sensorName": results[0].sensor_name,
-                    "pollutant": results[0].parameter,
-                    "unit": formatted_unit
-                };
-
                 output['results'] = [];
 
                 for(var i = 0; i < results.length; ++i){
                     var measurement = {
                         "time": results[i].time,
-                        "value": results[i].value
+                        "value": results[i].value,
+                        "sensor_id": results[i].sensor_id
                     };
                     output['results'].push(measurement);
                 }
