@@ -14,9 +14,9 @@ app.listen(PORT, () => {
 // Connect to the database
 const pool = mysql.createPool({
     user: 'root',
-    password: 'mrapid123',
-    database: 'MRAPID',
-    socketPath: '/cloudsql/mrapid:us-central1:mrapid',
+    password: 'longliveMRapid',
+    database: 'detroitair',
+    socketPath: '/cloudsql/detroit-air-402506:us-central1:detroitair-db',
 })
 
 // Routes
@@ -27,7 +27,7 @@ app.get("/", async (req, res) => {
 
 // Returns a list of all the parameters we have measurements for in units of µg/m³, ppm, or ppb
 app.get("/parameterList", async (req, res) => {
-    const query = "SELECT DISTINCT parameter, unit FROM MRAPID.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³'";
+    const query = "SELECT DISTINCT parameter, unit FROM detroitair.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³'";
 
     // create map for parameters and display names
     var displayNames = new Map([
@@ -80,7 +80,7 @@ app.get("/parameterList", async (req, res) => {
 //gets all unique zipcodes in the database
 // ex: http://localhost:8080/zipcodes
 app.get("/zipcodes",async (req,res) => {
-    const query = "SELECT DISTINCT zip_code FROM MRAPID.sensors"
+    const query = "SELECT DISTINCT zip_code FROM detroitair.sensors"
     
     try{
         pool.query(query, [], (error, results) => {
@@ -111,10 +111,10 @@ app.get("/zipcodes",async (req,res) => {
 // Also returns some sensor information
 app.get("/mapData", async (req, res) => {
     // SQL command to get most recent measurements for each parameter at every sensor location
-    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM MRAPID.measurements t ";
-    query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
+    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM detroitair.measurements t ";
+    query += "INNER JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
 
-    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.measurements ";
+    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM detroitair.measurements ";
     recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ";
     recents += "GROUP BY parameter , sensor_id , unit";
     query += "JOIN ( " + recents + " ) recents ";
@@ -264,10 +264,10 @@ app.get("/mapData", async (req, res) => {
 // Also returns some sensor information
 app.get("/mapAQIData", async (req, res) => {
     // SQL command to get most recent measurements for each parameter at every sensor location
-    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM MRAPID.AQI t ";
-    query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
+    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM detroitair.AQI t ";
+    query += "INNER JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
 
-    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.AQI ";
+    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM detroitair.AQI ";
     recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
     recents += "GROUP BY parameter , sensor_id , unit";
     query += "JOIN ( " + recents + " ) recents ";
@@ -414,9 +414,9 @@ app.get("/mapAQIData", async (req, res) => {
 // ex of nothing specified for zipcode or sensor type and two pollutants specified: http://localhost:8080/sensor?pollutant=pm2.5&pollutant=NO2
 // not sure long/lat is necessary delete if it isn't needed 
 app.get("/sensor", async (req, res) => {
-    var query = " SELECT DISTINCT MRAPID.sensors.sensor_id, sensor_name" +
-                  " FROM MRAPID.measurements " + 
-                  " LEFT JOIN MRAPID.sensors ON MRAPID.measurements.sensor_id = MRAPID.sensors.sensor_id " +
+    var query = " SELECT DISTINCT detroitair.sensors.sensor_id, sensor_name" +
+                  " FROM detroitair.measurements " + 
+                  " LEFT JOIN detroitair.sensors ON detroitair.measurements.sensor_id = detroitair.sensors.sensor_id " +
                   " WHERE (";
     var params = []
     if (req.query.zip_code != null ) {
@@ -508,11 +508,11 @@ app.get("/latest", async (req, res) => {
     else unit = req.query.unit;
     
     // SQL command to get most recent measurements for a specific parameter
-    var query = "SELECT DISTINCT value, parameter, unit, time, latitude, longitude FROM MRAPID.measurements t ";
-    const join_lat_long = "INNER JOIN MRAPID.sensors ON t.sensor_id = MRAPID.sensors.sensor_id ";
+    var query = "SELECT DISTINCT value, parameter, unit, time, latitude, longitude FROM detroitair.measurements t ";
+    const join_lat_long = "INNER JOIN detroitair.sensors ON t.sensor_id = detroitair.sensors.sensor_id ";
     query += join_lat_long;
 
-    const recents = "SELECT sensor_id, MAX(time) latest_time FROM MRAPID.measurements WHERE parameter = ? AND unit = ? GROUP BY sensor_id ";
+    const recents = "SELECT sensor_id, MAX(time) latest_time FROM detroitair.measurements WHERE parameter = ? AND unit = ? GROUP BY sensor_id ";
     query += "JOIN ( " + recents + " ) recents ";
 
     query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time ";
@@ -621,14 +621,14 @@ app.get("/data", async (req, res) => {
     var query;
     var params = [];
     if (!req.query.pollutant) {
-        query = "SELECT * FROM MRAPID.measurements WHERE (time > ?) ORDER BY parameter, time";
+        query = "SELECT * FROM detroitair.measurements WHERE (time > ?) ORDER BY parameter, time";
         params = [date];
     } else {
         if (req.query.pollutant.length == 1) {
-            query = "SELECT * FROM MRAPID.measurements WHERE (parameter = ? AND time > ?) ORDER BY time";
+            query = "SELECT * FROM detroitair.measurements WHERE (parameter = ? AND time > ?) ORDER BY time";
             params.push(req.query.pollutant);
         } else {
-            query = "SELECT * FROM MRAPID.measurements WHERE ((";
+            query = "SELECT * FROM detroitair.measurements WHERE ((";
             req.query.pollutant.forEach(element => {
                 query += "(parameter = ?) || "
                 params.push(element);
@@ -722,8 +722,8 @@ app.get("/history", async (req, res) => {
     else if(req.query.step == 'y') table = "yearly_mean";
     else table = "hourly_mean"; // default
 
-    var query = "SELECT value, time, parameter, unit, t.sensor_id, sensor_name FROM MRAPID." + table + " t ";
-    query += "JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
+    var query = "SELECT value, time, parameter, unit, t.sensor_id, sensor_name FROM detroitair." + table + " t ";
+    query += "JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
     query += "WHERE time BETWEEN ? AND ? AND parameter = ? AND unit = ? AND (";
 
     // add sensors to query
