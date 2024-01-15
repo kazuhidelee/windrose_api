@@ -1,6 +1,9 @@
-import express from 'express';
-import cors from 'cors';
-import mysql from 'mysql';
+import express from "express";
+import cors from "cors";
+import mysql from "mysql";
+import NodeCache from "node-cache";
+
+const cache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 
 const app = express();
 app.use(cors());
@@ -13,116 +16,135 @@ app.listen(PORT, () => {
 
 // Connect to the database
 const pool = mysql.createPool({
-    user: 'root',
-    password: 'longliveMRapid',
-    database: 'detroitair',
-    socketPath: '/cloudsql/detroit-air-402506:us-central1:detroitair-db',
-})
+  user: "root",
+  password: "longliveMRapid",
+  database: "detroitair",
+  socketPath: "/cloudsql/detroit-air-402506:us-central1:detroitair-db",
+});
 
 // Routes
 // Home, test response
 app.get("/", async (req, res) => {
-    res.json({status: "Ready! :)"});
+  res.json({ status: "Ready! :)" });
 });
 
 // Returns a list of all the parameters we have measurements for in units of µg/m³, ppm, or ppb
 app.get("/parameterList", async (req, res) => {
-    const query = "SELECT DISTINCT parameter, unit FROM detroitair.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³'";
+  const query =
+    "SELECT DISTINCT parameter, unit FROM detroitair.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³'";
 
-    // create map for parameters and display names
-    var displayNames = new Map([
-        ["pm0.5", "PM 0.5"],
-        ["pm1", "PM 1"],
-        ["pm2.5", "PM 2.5"],
-        ["pm4", "PM 4"],
-        ["pm10", "PM 10"],
-        ["Black C", "Black Carbon"],
-        ["SO2", "SO₂"],
-        ["O3", "O₃"],
-        ["NO2", "NO₂"],
-        ["CO2", "CO₂"]
-    ]);
+  // create map for parameters and display names
+  var displayNames = new Map([
+    ["pm0.5", "PM 0.5"],
+    ["pm1", "PM 1"],
+    ["pm2.5", "PM 2.5"],
+    ["pm4", "PM 4"],
+    ["pm10", "PM 10"],
+    ["Black C", "Black Carbon"],
+    ["SO2", "SO₂"],
+    ["O3", "O₃"],
+    ["NO2", "NO₂"],
+    ["CO2", "CO₂"],
+  ]);
 
-    try{
-        pool.query(query, [], (error, results) => {
-            if(!results) res.status(500).json({ message: "Error querying the database" });
-            else if(!results[0]){ // No results
-                res.json({ status: "Not found" });
-            } else{
-                // Return measurements in a Feature Collection
-                var allParams = {};
-                allParams['results'] = [];
-                
-                for(var i = 0; i < results.length; ++i){
-                    var displayName;
-                    if(displayNames.has(results[i].parameter)) displayName = displayNames.get(results[i].parameter);
-                    else displayName = results[i].parameter;
-                    
-                    var param = {
-                        "id": i + 1,
-                        "name": results[i].parameter,
-                        "units": results[i].unit,
-                        "displayName": displayName
-                    };
-                    
-                    allParams['results'].push(param);
-                }
+  try {
+    pool.query(query, [], (error, results) => {
+      if (!results)
+        res.status(500).json({ message: "Error querying the database" });
+      else if (!results[0]) {
+        // No results
+        res.json({ status: "Not found" });
+      } else {
+        // Return measurements in a Feature Collection
+        var allParams = {};
+        allParams["results"] = [];
 
-                res.status(200).json(allParams);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
+        for (var i = 0; i < results.length; ++i) {
+          var displayName;
+          if (displayNames.has(results[i].parameter))
+            displayName = displayNames.get(results[i].parameter);
+          else displayName = results[i].parameter;
+
+          var param = {
+            id: i + 1,
+            name: results[i].parameter,
+            units: results[i].unit,
+            displayName: displayName,
+          };
+
+          allParams["results"].push(param);
+        }
+
+        res.status(200).json(allParams);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
 });
 
 //gets all unique zipcodes in the database
 // ex: http://localhost:8080/zipcodes
-app.get("/zipcodes",async (req,res) => {
-    const query = "SELECT DISTINCT zip_code FROM detroitair.sensors"
-    
-    try{
-        pool.query(query, [], (error, results) => {
+app.get("/zipcodes", async (req, res) => {
+  const query = "SELECT DISTINCT zip_code FROM detroitair.sensors";
 
-            if(!results[0]){ // No results
-                res.json({ status: "Not found" });
-            } else{
-                // Return relevant zipcodes
-                var zip_codes = [];
-                for (var i = 0; i < results.length; ++i) {
-                    if(results[i].zip_code == "N/A"){continue;} //Some zips are N/A beacuse Not a single reverse Geocoding API I used could find them, I didnt input them in manually but they wont show up here
-                    var newZip = {
-                        'zip_code' : results[i].zip_code,
-                    }
-                    zip_codes.push(newZip);
-                }
-                var output = {"zipcode_list" : zip_codes};
-                res.status(200).json(output);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
+  try {
+    pool.query(query, [], (error, results) => {
+      if (!results[0]) {
+        // No results
+        res.json({ status: "Not found" });
+      } else {
+        // Return relevant zipcodes
+        var zip_codes = [];
+        for (var i = 0; i < results.length; ++i) {
+          if (results[i].zip_code == "N/A") {
+            continue;
+          } //Some zips are N/A beacuse Not a single reverse Geocoding API I used could find them, I didnt input them in manually but they wont show up here
+          var newZip = {
+            zip_code: results[i].zip_code,
+          };
+          zip_codes.push(newZip);
+        }
+        var output = { zipcode_list: zip_codes };
+        res.status(200).json(output);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
 });
 
 // For pollutant map, one feature for each sensor and most recent measurements for all pollutants
 // Also returns some sensor information
 app.get("/mapData", async (req, res) => {
-    // SQL command to get most recent measurements for each parameter at every sensor location
-    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM detroitair.measurements t ";
-    query += "INNER JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
+  const key = "mapData";
+  const value = myCache.get(key);
 
-    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM detroitair.measurements ";
-    recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ";
-    recents += "GROUP BY parameter , sensor_id , unit";
-    query += "JOIN ( " + recents + " ) recents ";
+  if (value != undefined) {
+    // Data is in cache, return it
+    res.status(200).json(value);
+    return;
+  }
+  // SQL command to get most recent measurements for each parameter at every sensor location
+  var query =
+    "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM detroitair.measurements t ";
+  query += "INNER JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
 
-    query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
-    query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³'";
+  var recents =
+    "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM detroitair.measurements ";
+  recents +=
+    "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ";
+  recents += "GROUP BY parameter , sensor_id , unit";
+  query += "JOIN ( " + recents + " ) recents ";
 
-    /* SQL query nicely formatted
+  query +=
+    "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
+  query +=
+    "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³'";
+
+  /* SQL query nicely formatted
         SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
         FROM measurements t
         INNER JOIN
@@ -141,17 +163,18 @@ app.get("/mapData", async (req, res) => {
         WHERE		t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³'
     */
 
-    try{
-        pool.query(query, [], (error, results) => {
-            if(!results[0]){ // No results
-                res.json({ status: "Not found" });
-            } else{
-                // Return measurements in a Feature Collection
-                var geojson = {};
-                geojson['type'] = 'FeatureCollection';
-                geojson['features'] = [];
+  try {
+    pool.query(query, [], (error, results) => {
+      if (!results[0]) {
+        // No results
+        res.json({ status: "Not found" });
+      } else {
+        // Return measurements in a Feature Collection
+        var geojson = {};
+        geojson["type"] = "FeatureCollection";
+        geojson["features"] = [];
 
-                /* Feature format:
+        /* Feature format:
                  {
                     "type": "Feature",
                     "geometry": {
@@ -176,106 +199,115 @@ app.get("/mapData", async (req, res) => {
                  }
                  */
 
-                var lat = Number(results[0].latitude);
-                var long = Number(results[0].longitude);
-                var lat_rounded = lat.toFixed(4);
-                var long_rounded = long.toFixed(4);
+        var lat = Number(results[0].latitude);
+        var long = Number(results[0].longitude);
+        var lat_rounded = lat.toFixed(4);
+        var long_rounded = long.toFixed(4);
 
-                var sensorFeature = {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [long_rounded, lat_rounded]
-                    },
-                    "properties": {}
-                };
+        var sensorFeature = {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [long_rounded, lat_rounded],
+          },
+          properties: {},
+        };
 
-                var curr_sensor_id = results[0].sensor_id;
-                var prev_sensor_id = results[0].sensor_id;
+        var curr_sensor_id = results[0].sensor_id;
+        var prev_sensor_id = results[0].sensor_id;
 
-                for (var i = 0; i < results.length; ++i) {
-                    curr_sensor_id = results[i].sensor_id;
+        for (var i = 0; i < results.length; ++i) {
+          curr_sensor_id = results[i].sensor_id;
 
-                    if(curr_sensor_id != prev_sensor_id){ // reached a new sensor
-                        // close out the old feature
-                        var prev;
-                        if(i == 0) prev = 0;
-                        else prev = i - 1;
-                        sensorFeature['properties']['info'] = {
-                            "sensorID": results[prev].sensor_id,
-                            "sensorName": results[prev].sensor_name,
-                            "source": results[prev].source
-                        };
+          if (curr_sensor_id != prev_sensor_id) {
+            // reached a new sensor
+            // close out the old feature
+            var prev;
+            if (i == 0) prev = 0;
+            else prev = i - 1;
+            sensorFeature["properties"]["info"] = {
+              sensorID: results[prev].sensor_id,
+              sensorName: results[prev].sensor_name,
+              source: results[prev].source,
+            };
 
-                        geojson['features'].push(sensorFeature);
+            geojson["features"].push(sensorFeature);
 
-                        // start a new feature. need new var to prevent reference to same obj
-                        var newFeature = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": []
-                            },
-                            "properties": {}
-                        };
-                        sensorFeature = newFeature;
+            // start a new feature. need new var to prevent reference to same obj
+            var newFeature = {
+              type: "Feature",
+              geometry: {
+                type: "Point",
+                coordinates: [],
+              },
+              properties: {},
+            };
+            sensorFeature = newFeature;
 
-                        // round latitude and longitude coordinates to 4 decimal places
-                        var lat = Number(results[i].latitude);
-                        var long = Number(results[i].longitude);
-                        var lat_rounded = lat.toFixed(4);
-                        var long_rounded = long.toFixed(4);
-                        sensorFeature['geometry']['coordinates'] = [long_rounded, lat_rounded];
-                    } 
+            // round latitude and longitude coordinates to 4 decimal places
+            var lat = Number(results[i].latitude);
+            var long = Number(results[i].longitude);
+            var lat_rounded = lat.toFixed(4);
+            var long_rounded = long.toFixed(4);
+            sensorFeature["geometry"]["coordinates"] = [
+              long_rounded,
+              lat_rounded,
+            ];
+          }
 
-                    // add the parameter, measurement, and unit
-                    var param = results[i].parameter;
-                    var value_rounded;
-                    if(param == "Black C") value_rounded = Number(results[i].value).toFixed(1); // black carbon 1 decimal
-                    else value_rounded = Number(results[i].value).toFixed(0); // everything else whole number
+          // add the parameter, measurement, and unit
+          var param = results[i].parameter;
+          var value_rounded;
+          if (param == "Black C")
+            value_rounded = Number(results[i].value).toFixed(1);
+          // black carbon 1 decimal
+          else value_rounded = Number(results[i].value).toFixed(0); // everything else whole number
 
-                    sensorFeature['properties'][param] = {
-                        "value": value_rounded,
-                        "unit": results[i].unit
-                    };
+          sensorFeature["properties"][param] = {
+            value: value_rounded,
+            unit: results[i].unit,
+          };
 
-                    prev_sensor_id = curr_sensor_id;
-                }
+          prev_sensor_id = curr_sensor_id;
+        }
 
-                // close out last feature
-                sensorFeature['properties']['info'] = {
-                    "sensorID": results[results.length - 1].sensor_id,
-                    "sensorName": results[results.length - 1].sensor_name,
-                    "source": results[results.length - 1].source
-                };
-                geojson['features'].push(sensorFeature);
-
-                res.status(200).json(geojson);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
+        // close out last feature
+        sensorFeature["properties"]["info"] = {
+          sensorID: results[results.length - 1].sensor_id,
+          sensorName: results[results.length - 1].sensor_name,
+          source: results[results.length - 1].source,
+        };
+        geojson["features"].push(sensorFeature);
+        myCache.set(key, geojson);
+        res.status(200).json(geojson);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
 });
 
 // Same as /mapData but gets most recent calculated AQI instead of recent measurments
 // For pollutant map, one feature for each sensor and most recent calculared AQIs for all pollutants
 // Also returns some sensor information
 app.get("/mapAQIData", async (req, res) => {
-    // SQL command to get most recent measurements for each parameter at every sensor location
-    var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM detroitair.AQI t ";
-    query += "INNER JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
+  // SQL command to get most recent measurements for each parameter at every sensor location
+  var query =
+    "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM detroitair.AQI t ";
+  query += "INNER JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
 
-    var recents = "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM detroitair.AQI ";
-    recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
-    recents += "GROUP BY parameter , sensor_id , unit";
-    query += "JOIN ( " + recents + " ) recents ";
+  var recents =
+    "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM detroitair.AQI ";
+  recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
+  recents += "GROUP BY parameter , sensor_id , unit";
+  query += "JOIN ( " + recents + " ) recents ";
 
-    query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
-    query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
+  query +=
+    "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
+  query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
 
-    /* SQL query nicely formatted
+  /* SQL query nicely formatted
         SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
         FROM AQI t
         INNER JOIN
@@ -294,17 +326,18 @@ app.get("/mapAQIData", async (req, res) => {
         WHERE		t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'
     */
 
-    try{
-        pool.query(query, [], (error, results) => {
-            if(!results[0]){ // No results
-                res.json({ status: "Not found" });
-            } else{
-                // Return measurements in a Feature Collection
-                var geojson = {};
-                geojson['type'] = 'FeatureCollection';
-                geojson['features'] = [];
+  try {
+    pool.query(query, [], (error, results) => {
+      if (!results[0]) {
+        // No results
+        res.json({ status: "Not found" });
+      } else {
+        // Return measurements in a Feature Collection
+        var geojson = {};
+        geojson["type"] = "FeatureCollection";
+        geojson["features"] = [];
 
-                /* Feature format:
+        /* Feature format:
                  {
                     "type": "Feature",
                     "geometry": {
@@ -329,196 +362,204 @@ app.get("/mapAQIData", async (req, res) => {
                  }
                  */
 
-                var lat = Number(results[0].latitude);
-                var long = Number(results[0].longitude);
-                var lat_rounded = lat.toFixed(4);
-                var long_rounded = long.toFixed(4);
+        var lat = Number(results[0].latitude);
+        var long = Number(results[0].longitude);
+        var lat_rounded = lat.toFixed(4);
+        var long_rounded = long.toFixed(4);
 
-                var sensorFeature = {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [long_rounded, lat_rounded]
-                    },
-                    "properties": {}
-                };
+        var sensorFeature = {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [long_rounded, lat_rounded],
+          },
+          properties: {},
+        };
 
-                var curr_sensor_id = results[0].sensor_id;
-                var prev_sensor_id = results[0].sensor_id;
+        var curr_sensor_id = results[0].sensor_id;
+        var prev_sensor_id = results[0].sensor_id;
 
-                for (var i = 0; i < results.length; ++i) {
-                    curr_sensor_id = results[i].sensor_id;
+        for (var i = 0; i < results.length; ++i) {
+          curr_sensor_id = results[i].sensor_id;
 
-                    if(curr_sensor_id != prev_sensor_id){ // reached a new sensor
-                        // close out the old feature
-                        var prev;
-                        if(i == 0) prev = 0;
-                        else prev = i - 1;
-                        sensorFeature['properties']['info'] = {
-                            "sensorID": results[prev].sensor_id,
-                            "sensorName": results[prev].sensor_name,
-                            "source": results[prev].source
-                        };
+          if (curr_sensor_id != prev_sensor_id) {
+            // reached a new sensor
+            // close out the old feature
+            var prev;
+            if (i == 0) prev = 0;
+            else prev = i - 1;
+            sensorFeature["properties"]["info"] = {
+              sensorID: results[prev].sensor_id,
+              sensorName: results[prev].sensor_name,
+              source: results[prev].source,
+            };
 
-                        geojson['features'].push(sensorFeature);
+            geojson["features"].push(sensorFeature);
 
-                        // start a new feature. need new var to prevent reference to same obj
-                        var newFeature = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Point",
-                                "coordinates": []
-                            },
-                            "properties": {}
-                        };
-                        sensorFeature = newFeature;
+            // start a new feature. need new var to prevent reference to same obj
+            var newFeature = {
+              type: "Feature",
+              geometry: {
+                type: "Point",
+                coordinates: [],
+              },
+              properties: {},
+            };
+            sensorFeature = newFeature;
 
-                        // round latitude and longitude coordinates to 4 decimal places
-                        var lat = Number(results[i].latitude);
-                        var long = Number(results[i].longitude);
-                        var lat_rounded = lat.toFixed(4);
-                        var long_rounded = long.toFixed(4);
-                        sensorFeature['geometry']['coordinates'] = [long_rounded, lat_rounded];
-                    } 
+            // round latitude and longitude coordinates to 4 decimal places
+            var lat = Number(results[i].latitude);
+            var long = Number(results[i].longitude);
+            var lat_rounded = lat.toFixed(4);
+            var long_rounded = long.toFixed(4);
+            sensorFeature["geometry"]["coordinates"] = [
+              long_rounded,
+              lat_rounded,
+            ];
+          }
 
-                    // add the parameter, measurement, and unit
-                    var param = results[i].parameter;
-                    sensorFeature['properties'][param] = {
-                        "value": Number(results[i].value).toFixed(0), // round measurements to whole number
-                        "unit": results[i].unit
-                    };
+          // add the parameter, measurement, and unit
+          var param = results[i].parameter;
+          sensorFeature["properties"][param] = {
+            value: Number(results[i].value).toFixed(0), // round measurements to whole number
+            unit: results[i].unit,
+          };
 
-                    prev_sensor_id = curr_sensor_id;
-                }
+          prev_sensor_id = curr_sensor_id;
+        }
 
-                // close out last feature
-                sensorFeature['properties']['info'] = {
-                    "sensorID": results[results.length - 1].sensor_id,
-                    "sensorName": results[results.length - 1].sensor_name,
-                    "source": results[results.length - 1].source
-                };
-                geojson['features'].push(sensorFeature);
+        // close out last feature
+        sensorFeature["properties"]["info"] = {
+          sensorID: results[results.length - 1].sensor_id,
+          sensorName: results[results.length - 1].sensor_name,
+          source: results[results.length - 1].source,
+        };
+        geojson["features"].push(sensorFeature);
 
-                res.status(200).json(geojson);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
+        res.status(200).json(geojson);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
 });
 
-// Returns all sensors of specified type(s) in specified zipcode(s) with at least one of the specified pollutant(s) 
+// Returns all sensors of specified type(s) in specified zipcode(s) with at least one of the specified pollutant(s)
 // If nothing is specified for one of the three parameters, there won't be filtering on that parameter
 // ex: http://localhost:8080/sensor?pollutant=pm2.5&zip_code=48209&type=OAQ
 // ex of nothing specified for zipcode or sensor type and two pollutants specified: http://localhost:8080/sensor?pollutant=pm2.5&pollutant=NO2
-// not sure long/lat is necessary delete if it isn't needed 
+// not sure long/lat is necessary delete if it isn't needed
 app.get("/sensor", async (req, res) => {
-    var query = " SELECT DISTINCT detroitair.sensors.sensor_id, sensor_name" +
-                  " FROM detroitair.measurements " + 
-                  " LEFT JOIN detroitair.sensors ON detroitair.measurements.sensor_id = detroitair.sensors.sensor_id " +
-                  " WHERE (";
-    var params = []
-    if (req.query.zip_code != null ) {
-        if (typeof req.query.zip_code == 'string') {
-            query += " zip_code = ? AND";
-            params.push(req.query.zip_code);
-        } else {
-            query += " (";
-            for (let i = 0; i < req.query.zip_code.length - 1; i++) {
-                query += " zip_code = ? OR";
-                params.push(req.query.zip_code[i]);
-            }
-            query += " zip_code = ? ) AND";
-            params.push(req.query.zip_code[req.query.zip_code.length - 1]);
-            
-        }
-    } 
-
-    if (req.query.pollutant != null) {
-        if (typeof req.query.pollutant == 'string') {
-            query += " parameter = ? AND";
-            params.push(req.query.pollutant);
-        } else {
-            query += " (";
-            for (let i = 0; i < req.query.pollutant.length - 1; i++) {
-                query +=  " parameter = ? OR";
-                params.push(req.query.pollutant[i]);
-            }
-            query +=  " parameter = ? ) AND";
-            params.push(req.query.pollutant[req.query.pollutant.length - 1]);
-        }
-    } 
-
-    if (req.query.type != null) {
-        if (typeof req.query.type == 'string') {
-            query += " sensor_name LIKE ? AND";
-            params.push("%" + req.query.type + "%");
-        } else {
-            query += " (";
-            for (let i = 0; i < req.query.type.length - 1; i++) {
-                query +=  " sensor_name LIKE ? OR";
-                params.push("%" + req.query.type[i] + "%");
-            }
-            query +=  " sensor_name LIKE ?) AND";
-            params.push("%" + req.query.type[req.query.type.length - 1] + "%");
-        }
-    } 
-
-    query += " 1 )";
-    try{
-        pool.query(query, params, (error, results) => {
-            if(!results[0]){ // No results
-                res.json({ status: "Not found" });
-            } else{
-                // Return relevant sensors
-                var sensors = [];
-                for (var i = 0; i < results.length; ++i) {
-                    var newSensor = {
-                        'name' : results[i].sensor_name,
-                        'id' : results[i].sensor_id,
-                    }
-                    sensors.push(newSensor);
-                }
-                var output = {"SensorList" : sensors};
-                res.status(200).json(output);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
+  var query =
+    " SELECT DISTINCT detroitair.sensors.sensor_id, sensor_name" +
+    " FROM detroitair.measurements " +
+    " LEFT JOIN detroitair.sensors ON detroitair.measurements.sensor_id = detroitair.sensors.sensor_id " +
+    " WHERE (";
+  var params = [];
+  if (req.query.zip_code != null) {
+    if (typeof req.query.zip_code == "string") {
+      query += " zip_code = ? AND";
+      params.push(req.query.zip_code);
+    } else {
+      query += " (";
+      for (let i = 0; i < req.query.zip_code.length - 1; i++) {
+        query += " zip_code = ? OR";
+        params.push(req.query.zip_code[i]);
+      }
+      query += " zip_code = ? ) AND";
+      params.push(req.query.zip_code[req.query.zip_code.length - 1]);
     }
-});
+  }
 
+  if (req.query.pollutant != null) {
+    if (typeof req.query.pollutant == "string") {
+      query += " parameter = ? AND";
+      params.push(req.query.pollutant);
+    } else {
+      query += " (";
+      for (let i = 0; i < req.query.pollutant.length - 1; i++) {
+        query += " parameter = ? OR";
+        params.push(req.query.pollutant[i]);
+      }
+      query += " parameter = ? ) AND";
+      params.push(req.query.pollutant[req.query.pollutant.length - 1]);
+    }
+  }
+
+  if (req.query.type != null) {
+    if (typeof req.query.type == "string") {
+      query += " sensor_name LIKE ? AND";
+      params.push("%" + req.query.type + "%");
+    } else {
+      query += " (";
+      for (let i = 0; i < req.query.type.length - 1; i++) {
+        query += " sensor_name LIKE ? OR";
+        params.push("%" + req.query.type[i] + "%");
+      }
+      query += " sensor_name LIKE ?) AND";
+      params.push("%" + req.query.type[req.query.type.length - 1] + "%");
+    }
+  }
+
+  query += " 1 )";
+  try {
+    pool.query(query, params, (error, results) => {
+      if (!results[0]) {
+        // No results
+        res.json({ status: "Not found" });
+      } else {
+        // Return relevant sensors
+        var sensors = [];
+        for (var i = 0; i < results.length; ++i) {
+          var newSensor = {
+            name: results[i].sensor_name,
+            id: results[i].sensor_id,
+          };
+          sensors.push(newSensor);
+        }
+        var output = { SensorList: sensors };
+        res.status(200).json(output);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
+});
 
 // For each monitor, get most recent value of a specific pollutant and unit
 // Request link format is "[server]/latest?pollutant=[pollutant]&unit=[unit]". ex: http://localhost:8080/latest?pollutant=pm2.5&unit=ug/m3
 // Parameters: Use BC for Black Carbon
 // Units: Use ug/m3 for µg/m³, p/cm3 for particles/cm³, and ppm or ppb for those.
 app.get("/latest", async (req, res) => {
-    // Format param for SQL request
-    var pollutant;
-    if(req.query.pollutant == "BC") pollutant = "Black C";
-    else pollutant = req.query.pollutant;
+  // Format param for SQL request
+  var pollutant;
+  if (req.query.pollutant == "BC") pollutant = "Black C";
+  else pollutant = req.query.pollutant;
 
-    // Format unit for SQL request
-    var unit;
-    if(req.query.unit == "ug/m3") unit = "µg/m³";
-    else if(req.query.unit == "p/cm3") unit = "particles/cm³";
-    else unit = req.query.unit;
-    
-    // SQL command to get most recent measurements for a specific parameter
-    var query = "SELECT DISTINCT value, parameter, unit, time, latitude, longitude FROM detroitair.measurements t ";
-    const join_lat_long = "INNER JOIN detroitair.sensors ON t.sensor_id = detroitair.sensors.sensor_id ";
-    query += join_lat_long;
+  // Format unit for SQL request
+  var unit;
+  if (req.query.unit == "ug/m3") unit = "µg/m³";
+  else if (req.query.unit == "p/cm3") unit = "particles/cm³";
+  else unit = req.query.unit;
 
-    const recents = "SELECT sensor_id, MAX(time) latest_time FROM detroitair.measurements WHERE parameter = ? AND unit = ? GROUP BY sensor_id ";
-    query += "JOIN ( " + recents + " ) recents ";
+  // SQL command to get most recent measurements for a specific parameter
+  var query =
+    "SELECT DISTINCT value, parameter, unit, time, latitude, longitude FROM detroitair.measurements t ";
+  const join_lat_long =
+    "INNER JOIN detroitair.sensors ON t.sensor_id = detroitair.sensors.sensor_id ";
+  query += join_lat_long;
 
-    query += "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time ";
-    query = query + "WHERE t.parameter = ? AND unit = ?";
+  const recents =
+    "SELECT sensor_id, MAX(time) latest_time FROM detroitair.measurements WHERE parameter = ? AND unit = ? GROUP BY sensor_id ";
+  query += "JOIN ( " + recents + " ) recents ";
 
-    /* SQL query nicely formatted, example using PM 2.5
+  query +=
+    "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time ";
+  query = query + "WHERE t.parameter = ? AND unit = ?";
+
+  /* SQL query nicely formatted, example using PM 2.5
         SELECT DISTINCT
             value, parameter, unit, time, latitude, longitude
         FROM
@@ -537,49 +578,52 @@ app.get("/latest", async (req, res) => {
         WHERE
             t.parameter = 'pm2.5' AND unit = 'µg/m³'
     */
-    try{
-        pool.query(query, [ pollutant, unit, pollutant, unit ], (error, results) => {
-            if(!results) res.status(500).json({ message: "Error with the database query" });
-            else if(!results[0]){ // No results
-                res.json({ status: "Not found" });
-            } else{
-                // Return measurements in a Feature Collection
-                var geojson = {};
-                geojson['type'] = 'FeatureCollection';
-                geojson['features'] = [];
-                
-                for (var i = 0; i < results.length; ++i) {
-                    // round latitude and longitude coordinates to 4 decimal places
-                    var lat = Number(results[i].latitude);
-                    var long = Number(results[i].longitude);
-                    var lat_rounded = lat.toFixed(4);
-                    var long_rounded = long.toFixed(4);
+  try {
+    pool.query(query, [pollutant, unit, pollutant, unit], (error, results) => {
+      if (!results)
+        res.status(500).json({ message: "Error with the database query" });
+      else if (!results[0]) {
+        // No results
+        res.json({ status: "Not found" });
+      } else {
+        // Return measurements in a Feature Collection
+        var geojson = {};
+        geojson["type"] = "FeatureCollection";
+        geojson["features"] = [];
 
-                    // round measurements to whole number
-                    var value;
-                    if(pollutant == "Black C") value = Number(results[i].value).toFixed(1);
-                    else value = Number(results[i].value).toFixed(0);
+        for (var i = 0; i < results.length; ++i) {
+          // round latitude and longitude coordinates to 4 decimal places
+          var lat = Number(results[i].latitude);
+          var long = Number(results[i].longitude);
+          var lat_rounded = lat.toFixed(4);
+          var long_rounded = long.toFixed(4);
 
-                    var newFeature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [long_rounded, lat_rounded]
-                        },
-                        "properties": {
-                            "param": value
-                        }
-                    }
-                    geojson['features'].push(newFeature);
-                }
+          // round measurements to whole number
+          var value;
+          if (pollutant == "Black C")
+            value = Number(results[i].value).toFixed(1);
+          else value = Number(results[i].value).toFixed(0);
 
-                res.status(200).json(geojson);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
+          var newFeature = {
+            type: "Feature",
+            geometry: {
+              type: "Point",
+              coordinates: [long_rounded, lat_rounded],
+            },
+            properties: {
+              param: value,
+            },
+          };
+          geojson["features"].push(newFeature);
+        }
+
+        res.status(200).json(geojson);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
 });
 
 /*
@@ -602,84 +646,87 @@ app.get("/latest", async (req, res) => {
     ex multiple but not all pollutant params selected: http://localhost:3306/data?pollutant=pm2.5&pollutant=CO&timeframe=day
 */
 app.get("/data", async (req, res) => {
-    let date = new Date();
-    if (req.query.timeframe == "hour") {
-        date.setHours(date.getHours() - 1);
-    } else if (req.query.timeframe == "year") {
-        date.setFullYear(date.getFullYear()-1);
-    } else if (req.query.timeframe == "week") {
-        date.setDate(date.getDate() - 7);
-    } else if (req.query.timeframe == "month") {
-        date.setMonth(date.getMonth()-1);
+  let date = new Date();
+  if (req.query.timeframe == "hour") {
+    date.setHours(date.getHours() - 1);
+  } else if (req.query.timeframe == "year") {
+    date.setFullYear(date.getFullYear() - 1);
+  } else if (req.query.timeframe == "week") {
+    date.setDate(date.getDate() - 7);
+  } else if (req.query.timeframe == "month") {
+    date.setMonth(date.getMonth() - 1);
+  } else {
+    // day, default timeframe
+    date.setDate(date.getDate() - 1);
+  }
+  date = date.toISOString();
+  console.log("pollutants");
+  console.log(req.query.pollutant);
+  var query;
+  var params = [];
+  if (!req.query.pollutant) {
+    query =
+      "SELECT * FROM detroitair.measurements WHERE (time > ?) ORDER BY parameter, time";
+    params = [date];
+  } else {
+    if (req.query.pollutant.length == 1) {
+      query =
+        "SELECT * FROM detroitair.measurements WHERE (parameter = ? AND time > ?) ORDER BY time";
+      params.push(req.query.pollutant);
     } else {
-        // day, default timeframe
-        date.setDate(date.getDate() - 1);
-    } 
-    date = date.toISOString();
-    console.log("pollutants");
-    console.log(req.query.pollutant);
-    var query;
-    var params = [];
-    if (!req.query.pollutant) {
-        query = "SELECT * FROM detroitair.measurements WHERE (time > ?) ORDER BY parameter, time";
-        params = [date];
-    } else {
-        if (req.query.pollutant.length == 1) {
-            query = "SELECT * FROM detroitair.measurements WHERE (parameter = ? AND time > ?) ORDER BY time";
-            params.push(req.query.pollutant);
-        } else {
-            query = "SELECT * FROM detroitair.measurements WHERE ((";
-            req.query.pollutant.forEach(element => {
-                query += "(parameter = ?) || "
-                params.push(element);
-            });
-            query += "0) AND time > ?) ORDER BY parameter,time";
+      query = "SELECT * FROM detroitair.measurements WHERE ((";
+      req.query.pollutant.forEach((element) => {
+        query += "(parameter = ?) || ";
+        params.push(element);
+      });
+      query += "0) AND time > ?) ORDER BY parameter,time";
+    }
+    params.push(date);
+  }
+  console.log(query);
+  try {
+    pool.query(query, params, (error, results) => {
+      console.log("results");
+      console.log(results);
+      //res.status(200).json({"results": date});
+      if (!results)
+        res.status(500).json({ message: "Error with the database query" });
+      else if (!results[0]) {
+        // No results
+        res.json({ status: "No results" });
+      } else {
+        var output = {};
+        var data = [];
+        var current_parameter = results[0].parameter;
+        for (var i = 0; i < results.length; i++) {
+          if (results[i].parameter == current_parameter) {
+            var newFeature = {
+              time: results[i].time,
+              measurement: results[i].value,
+              sensor: results[i].sensor_name,
+            };
+            data.push(newFeature);
+          } else {
+            current_parameter = results[i].parameter;
+            output[results[i - 1].parameter] = {
+              unit: results[i - 1].unit,
+              data: data,
+            };
+            data = [];
+            i--;
+          }
         }
-        params.push(date);
-    }
-    console.log(query);
-    try{
-        pool.query(query, params, (error, results) => {
-            console.log("results");
-            console.log(results);
-            //res.status(200).json({"results": date});
-            if(!results) res.status(500).json({ message: "Error with the database query" });
-            else if(!results[0]){ // No results
-                res.json({ status: "No results" });
-            } else{
-                var output = {};
-                var data = [];
-                var current_parameter = results[0].parameter;
-                for (var i = 0; i < results.length; i++) {
-                    if (results[i].parameter == current_parameter) {
-                        var newFeature = {
-                            "time": results[i].time,
-                            "measurement": results[i].value,
-                            "sensor": results[i].sensor_name,
-                        }
-                        data.push(newFeature);
-                    } else {
-                        current_parameter = results[i].parameter;
-                        output[results[i-1].parameter] = {
-                            'unit': results[i-1].unit,
-                            'data': data,
-                        };
-                        data = [];
-                        i--;
-                    }
-                }
-                output[results[results.length - 1].parameter] = {
-                    'unit': results[results.length - 1].unit,
-                    'data': data,
-                };
-                res.status(200).json(output);
-
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
+        output[results[results.length - 1].parameter] = {
+          unit: results[results.length - 1].unit,
+          data: data,
+        };
+        res.status(200).json(output);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
 });
 
 /* Returns data for a specific monitor and pollutant between two specified dates (inclusive)
@@ -710,82 +757,90 @@ app.get("/data", async (req, res) => {
         }
 */
 app.get("/history", async (req, res) => {
-    if(!req.query.sensor || !req.query.pollutant || !req.query.unit){ // error handling for required params
-        res.status(200).json({ message: "Must specify sensor ID(s), pollutant, and unit in the endpoint" });
-        return;
-    }
+  if (!req.query.sensor || !req.query.pollutant || !req.query.unit) {
+    // error handling for required params
+    res.status(200).json({
+      message: "Must specify sensor ID(s), pollutant, and unit in the endpoint",
+    });
+    return;
+  }
 
-    var table;
-    if(req.query.step == 'h') table = "hourly_mean";
-    else if(req.query.step == 'd') table = "daily_mean";
-    else if(req.query.step == 'm') table = "monthly_mean";
-    else if(req.query.step == 'y') table = "yearly_mean";
-    else table = "hourly_mean"; // default
+  var table;
+  if (req.query.step == "h") table = "hourly_mean";
+  else if (req.query.step == "d") table = "daily_mean";
+  else if (req.query.step == "m") table = "monthly_mean";
+  else if (req.query.step == "y") table = "yearly_mean";
+  else table = "hourly_mean"; // default
 
-    var query = "SELECT value, time, parameter, unit, t.sensor_id, sensor_name FROM detroitair." + table + " t ";
-    query += "JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
-    query += "WHERE time BETWEEN ? AND ? AND parameter = ? AND unit = ? AND (";
+  var query =
+    "SELECT value, time, parameter, unit, t.sensor_id, sensor_name FROM detroitair." +
+    table +
+    " t ";
+  query += "JOIN detroitair.sensors ON t.sensor_id = sensors.sensor_id ";
+  query += "WHERE time BETWEEN ? AND ? AND parameter = ? AND unit = ? AND (";
 
-    // add sensors to query
-    var sensorString = req.query.sensor;
-    var sensors = sensorString.split(','); // put sensor list into array
-    for(var i = 0; i < sensors.length; ++i){
-        if(i != 0) query += " OR";
-        query += " t.sensor_id = '";
-        query += sensors[i];
-        query += "'";
-    }
-    query += " ) ORDER BY time";
+  // add sensors to query
+  var sensorString = req.query.sensor;
+  var sensors = sensorString.split(","); // put sensor list into array
+  for (var i = 0; i < sensors.length; ++i) {
+    if (i != 0) query += " OR";
+    query += " t.sensor_id = '";
+    query += sensors[i];
+    query += "'";
+  }
+  query += " ) ORDER BY time";
 
-    var pollutant;
-    if(req.query.pollutant == "BC") pollutant = "Black C";
-    else pollutant = req.query.pollutant;
+  var pollutant;
+  if (req.query.pollutant == "BC") pollutant = "Black C";
+  else pollutant = req.query.pollutant;
 
-    var start;
-    if(req.query.start) start = req.query.start;
-    else start = "2023-01-01";
+  var start;
+  if (req.query.start) start = req.query.start;
+  else start = "2023-01-01";
 
-    var end;
-    if(req.query.end) end = req.query.end;
-    else{ // today's date
-        let date = new Date();
-        let day = ("0" + date.getDate()).slice(-2); // adjust 0 before single digit date
-        let month = ("0" + (date.getMonth() + 1)).slice(-2); // adjust 0 before single digit month
-        end = date.getFullYear() + "-" + month + "-" + day;
-    }
+  var end;
+  if (req.query.end) end = req.query.end;
+  else {
+    // today's date
+    let date = new Date();
+    let day = ("0" + date.getDate()).slice(-2); // adjust 0 before single digit date
+    let month = ("0" + (date.getMonth() + 1)).slice(-2); // adjust 0 before single digit month
+    end = date.getFullYear() + "-" + month + "-" + day;
+  }
 
-    // request won't register with formatting of the cubic m/cm directly in the endpoint link
-    var formatted_unit;
-    if(req.query.unit == 'ug/m3') formatted_unit = 'µg/m³';
-    else if(req.query.unit == "p/cm3") formatted_unit = 'particles/cm³';
-    else formatted_unit = req.query.unit;
+  // request won't register with formatting of the cubic m/cm directly in the endpoint link
+  var formatted_unit;
+  if (req.query.unit == "ug/m3") formatted_unit = "µg/m³";
+  else if (req.query.unit == "p/cm3") formatted_unit = "particles/cm³";
+  else formatted_unit = req.query.unit;
 
-    var params = [start, end, pollutant, formatted_unit];
+  var params = [start, end, pollutant, formatted_unit];
 
-    try{
-        pool.query(query, params, (error, results) => {
-            if(!results) res.status(500).json({ message: "Error with the database query" });
-            else if(!results[0]){ // No results
-                res.json({ status: "No results" });
-            } else{
-                var output = {};
-                output['results'] = [];
+  try {
+    pool.query(query, params, (error, results) => {
+      if (!results)
+        res.status(500).json({ message: "Error with the database query" });
+      else if (!results[0]) {
+        // No results
+        res.json({ status: "No results" });
+      } else {
+        var output = {};
+        output["results"] = [];
 
-                for(var i = 0; i < results.length; ++i){
-                    var measurement = {
-                        "time": results[i].time,
-                        "value": results[i].value,
-                        "sensor_id": results[i].sensor_id
-                    };
-                    output['results'].push(measurement);
-                }
+        for (var i = 0; i < results.length; ++i) {
+          var measurement = {
+            time: results[i].time,
+            value: results[i].value,
+            sensor_id: results[i].sensor_id,
+          };
+          output["results"].push(measurement);
+        }
 
-                res.status(200).json(output);
-            }
-        });
-    } catch(error){
-        console.error('Error querying the database: ', error);
-        res.status(500).json({message: 'Error querying the database'});
-    }
-
+        res.status(200).json(output);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
 });
