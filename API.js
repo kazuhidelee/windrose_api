@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql';
+import NodeCache from "node-cache";
+
+const myCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 
 const app = express();
 app.use(cors());
@@ -16,7 +19,8 @@ const pool = mysql.createPool({
     user: 'root',
     password: 'mrapid123',
     database: 'MRAPID',
-    socketPath: '/cloudsql/mrapid:us-central1:mrapid',
+    // socketPath: '/cloudsql/mrapid:us-central1:mrapid',
+    host: '34.171.19.205'
 })
 
 // Routes
@@ -110,6 +114,15 @@ app.get("/zipcodes",async (req,res) => {
 // For pollutant map, one feature for each sensor and most recent measurements for all pollutants
 // Also returns some sensor information
 app.get("/mapData", async (req, res) => {
+    const key = "mapData";
+    const value = myCache.get(key);
+
+    if (value != undefined) {
+        // Data is in cache, return it
+        res.status(200).json(value);
+        return;
+    }
+
     // SQL command to get most recent measurements for each parameter at every sensor location
     var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM MRAPID.measurements t ";
     query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
@@ -249,7 +262,8 @@ app.get("/mapData", async (req, res) => {
                     "source": results[results.length - 1].source
                 };
                 geojson['features'].push(sensorFeature);
-
+                
+                myCache.set(key, geojson);
                 res.status(200).json(geojson);
             }
         });
@@ -263,6 +277,15 @@ app.get("/mapData", async (req, res) => {
 // For pollutant map, one feature for each sensor and most recent calculared AQIs for all pollutants
 // Also returns some sensor information
 app.get("/mapAQIData", async (req, res) => {
+    const key = "mapAQIData";
+    const value = myCache.get(key);
+
+    if (value != undefined) {
+        // Data is in cache, return it
+        res.status(200).json(value);
+        return;
+    }
+
     // SQL command to get most recent measurements for each parameter at every sensor location
     var query = "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM MRAPID.AQI t ";
     query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
@@ -398,7 +421,8 @@ app.get("/mapAQIData", async (req, res) => {
                     "source": results[results.length - 1].source
                 };
                 geojson['features'].push(sensorFeature);
-
+                
+                myCache.set(key, geojson);
                 res.status(200).json(geojson);
             }
         });
