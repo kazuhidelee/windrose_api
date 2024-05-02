@@ -30,7 +30,7 @@ app.get("/", async (req, res) => {
 
 // Returns a list of all the parameters we have measurements for in units of µg/m³, ppm, or ppb
 app.get("/parameterList", async (req, res) => {
-    const query = "SELECT DISTINCT parameter, unit FROM MRAPID.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³'";
+    const query = "SELECT DISTINCT parameter, unit FROM MRAPID.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ORDER BY parameter";
 
     // create map for parameters and display names
     var displayNames = new Map([
