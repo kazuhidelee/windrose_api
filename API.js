@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import mysql from "mysql";
 import NodeCache from "node-cache";
+import kriging from '@sakitam-gis/kriging';
 
 const myCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 
@@ -19,7 +20,8 @@ const pool = mysql.createPool({
   user: "root",
   password: "mrapid123",
   database: "MRAPID",
-  socketPath: "/cloudsql/mrapid:us-central1:mrapid",
+  //socketPath: "/cloudsql/mrapid:us-central1:mrapid",
+  host: '34.171.19.205'
 });
 
 // Routes
@@ -855,5 +857,103 @@ app.get("/history", async (req, res) => {
   } catch (error) {
     console.error("Error querying the database: ", error);
     res.status(500).json({ message: "Error querying the database" });
+  }
+});
+
+app.get("/interpolatedMap", async (req, res) => {
+  var pollutant;
+  if (req.query.pollutant == "BC") pollutant = "Black C";
+  else pollutant = req.query.pollutant;
+
+  // Format unit for SQL request
+  var unit;
+  if (req.query.unit == "ug/m3") unit = "µg/m³";
+  else if (req.query.unit == "p/cm3") unit = "particles/cm³";
+  else unit = req.query.unit;
+
+  // time
+  const formatOptions = {
+    timeZone: 'America/Detroit', 
+    dateStyle: 'short', 
+    hour12: false, 
+    timeStyle: 'medium'
+  };
+
+  //var currTime = new Intl.DateTimeFormat("en-CA", formatOptions).format(Date.now()).split(',').join('');
+  //console.log(currTime)
+  var sub = Date.now() - 14400000;  // subtract 3 hours
+  var minTime = new Intl.DateTimeFormat("en-CA", formatOptions).format(sub).split(',').join('');
+  //console.log(subTime)
+
+  var query =
+    "SELECT longitude, latitude, t.sensor_id, AVG(t.value) AS avgMeasurement FROM MRAPID.recent_measurements t " +
+    //"SELECT t.sensor_id, AVG(CASE WHEN t.time > ? THEN t.value ELSE NULL END) AS avgMeasurement FROM MRAPID.recent_measurements t " +
+    //"SELECT t.parameter, t.sensor_id, t.value, t.time FROM MRAPID.recent_measurements t " +
+    "LEFT JOIN MRAPID.sensors ON t.sensor_id = MRAPID.sensors.sensor_id " + 
+    "WHERE MRAPID.sensors.longitude > -83.16 && MRAPID.sensors.longitude < -82.85 && MRAPID.sensors.latitude > 42.16 && MRAPID.sensors.latitude < 42.57 AND t.time > ? AND t.parameter = ? AND t.unit = ? " + 
+    "GROUP BY t.sensor_id, longitude, latitude";
+  
+  var t = [];
+  var x = [ /* longitude coordinates */ ];
+  var y = [ /* latitude coordinates */ ];
+  var predictions = [];
+
+  //minTime = '2024-05-18 12:00:32'
+  //currTime = '2024-05-18 16:00:32'
+  try {
+      pool.query(query, [minTime, pollutant, unit], (error, results) => {
+      if (!results)
+        res.status(500).json({ message: "Error with the database query" });
+      else if (!results[0]) {
+        // No results
+        res.json({ status: "Not found" });
+      } else {
+        console.log(results)
+        for (var i = 0; i < results.length; ++i) {
+          t.push(results[i].avgMeasurement);
+          x.push(results[i].longitude);
+          y.push(results[i].latitude);
+        }
+        console.log(t)
+        console.log(x)
+
+        // testing with 13 points
+        //t = [6,9,1,21,7,9,14,8,6,7,6,8,11,23,24,2,8,3,9,17,26,26,23,30,29,0,5,26,30,33,10,31]
+        //x = [-83.0756,-83.1296,-83.1296,-83.0431,-82.9706,-83.1039,-83.1500,-83.0008,-83.1072,-83.0919,-83.1035,-83.1579,-83.1294,-83.1570,-83.1350,-83.1439,-83.0960,-83.1488,-82.9711,-83.0942,-83.0640,-83.0990,-83.0433,-82.9844,-83.0089,-82.9819,-82.9577,-82.9708,-82.9296,-82.9164,-82.9337,-82.9450]
+        //y = [42.3302,42.2960,42.2960,42.3699,42.3864,42.3679,42.3075,42.4308,42.3042,42.3122,42.3121,42.2617,42.2958,42.4693,42.4455,42.2793,42.3095,42.3075,42.3863,42.3172,42.3266,42.3631,42.3698,42.3564,42.3954,42.3844,42.3846,42.3862,42.3742,42.5042,42.5382,42.5591]
+
+        var variogram = kriging.train(t,x,y,"spherical", 0, 70);
+        if (!variogram) return done("variogram is null");
+
+        var predictVal = []
+        var geojson = {};
+        geojson['type'] = 'FeatureCollection';
+        geojson['features'] = [];
+        for (let x = -83.266; x < -82.958; x+=0.001) {
+          predictVal.push(pred)
+            for (let y = 42.261; y < 42.470; y+=0.001) {
+                var pred = kriging.predict(x, y, variogram)
+                var newFeature = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [x, y]
+                    },
+                    "properties": {
+                        pollutant: pred
+                    }
+                };
+                geojson['features'].push(newFeature);
+            }
+        }
+        //var variogram = kriging.train(t, x, y, model, sigma2, alpha);
+        //res.json({status: "ok! :)"})
+        res.status(200).json({"pred": predictVal});
+        //res.status(200).json(geojson);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(5)
   }
 });
