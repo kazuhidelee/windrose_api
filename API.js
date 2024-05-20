@@ -948,8 +948,8 @@ app.get("/interpolatedMap", async (req, res) => {
         }
         //var variogram = kriging.train(t, x, y, model, sigma2, alpha);
         //res.json({status: "ok! :)"})
-        //res.status(200).json({"pred": predictVal});
-        res.status(200).json(geojson);
+        res.status(200).json({"pred": predictVal});
+        //res.status(200).json(geojson);
       }
     });
   } catch (error) {
