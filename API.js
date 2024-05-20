@@ -19,7 +19,17 @@ const pool = mysql.createPool({
   user: "root",
   password: "mrapid123",
   database: "MRAPID",
-  socketPath: "/cloudsql/mrapid:us-central1:mrapid",
+  //connect to 34.171.19.205
+  host: "34.171.19.205",
+});
+//make sure connection successful
+pool.getConnection((err, connection) => {
+  if (err) {
+    if (connection) connection.release();
+    console.error("Error connecting to the database: ", err);
+  } else {
+    console.log("Connected to the database.");
+  }
 });
 
 // Routes
@@ -142,10 +152,10 @@ app.get("/mapData", async (req, res) => {
 
   query +=
     "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
-  query += "AND DATE(t.time) = CURDATE()";
+  query +=
+    "AND DATE(CONVERT_TZ(t.time, 'UTC', 'America/New_York')) = DATE(CONVERT_TZ(NOW(), 'UTC', 'America/New_York'))";
   query +=
     "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³'";
-
   /* SQL query nicely formatted
         SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
         FROM measurements t
@@ -311,13 +321,13 @@ app.get("/mapAQIData", async (req, res) => {
 
   var recents =
     "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.AQI ";
-  recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
-  recents += "GROUP BY parameter , sensor_id , unit";
-  query += "JOIN ( " + recents + " ) recents ";
+  // recents += "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' ";
+  // recents += "GROUP BY parameter , sensor_id , unit";
+  // query += "JOIN ( " + recents + " ) recents ";
 
-  query +=
-    "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
-  query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
+  // query +=
+  //   "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
+  // query += "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb'";
 
   /* SQL query nicely formatted
         SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
