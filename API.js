@@ -20,8 +20,8 @@ const pool = mysql.createPool({
   password: "mrapid123",
   database: "MRAPID",
   //connect to 34.171.19.205
-  //host: "34.171.19.205",
-  socketPath: "/cloudsql/mrapid:us-central1:mrapid",
+  host: "34.171.19.205",
+  //socketPath: "/cloudsql/mrapid:us-central1:mrapid",
 });
 //make sure connection successful
 pool.getConnection((err, connection) => {
@@ -904,25 +904,27 @@ app.get("/latestAll", async (req, res) => {
 
         // Return measurements in a detailed JSON structure
         const response = {
-          sensor_id: sensorId,
-          sensor_name: sensorInfo.sensor_name,
-          source: sensorInfo.source,
-          location: {
-            latitude: sensorInfo.latitude,
-            longitude: sensorInfo.longitude,
-            street: sensorInfo.street,
-            zip_code: sensorInfo.zip_code,
-            region: sensorInfo.region,
+          results: {
+            sensor_id: sensorId,
+            sensor_name: sensorInfo.sensor_name,
+            source: sensorInfo.source,
+            location: {
+              latitude: sensorInfo.latitude,
+              longitude: sensorInfo.longitude,
+              street: sensorInfo.street,
+              zip_code: sensorInfo.zip_code,
+              region: sensorInfo.region,
+            },
+            param_list: sensorInfo.param_list,
+            measurements: results.map((result) => ({
+              parameter: result.parameter,
+              value: Number(result.value).toFixed(
+                result.parameter === "Black C" ? 1 : 0
+              ),
+              unit: result.unit,
+              time: result.time,
+            })),
           },
-          param_list: sensorInfo.param_list,
-          measurements: results.map((result) => ({
-            parameter: result.parameter,
-            value: Number(result.value).toFixed(
-              result.parameter === "Black C" ? 1 : 0
-            ),
-            unit: result.unit,
-            time: result.time,
-          })),
         };
 
         res.status(200).json(response);
