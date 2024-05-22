@@ -868,3 +868,68 @@ app.get("/history", async (req, res) => {
     res.status(500).json({ message: "Error querying the database" });
   }
 });
+
+app.get("/latestAll", async (req, res) => {
+  const sensorId = req.query.sensor_id;
+
+  if (!sensorId) {
+    res.status(400).json({ message: "Sensor ID is required" });
+    return;
+  }
+
+  // SQL command to get most recent measurements for all parameters for a specific sensor and join with sensors table
+  const query = `
+    SELECT
+        rm.value, rm.parameter, rm.unit, rm.time, 
+        s.sensor_name, s.source, s.latitude, s.longitude, 
+        s.street, s.zip_code, s.region, s.param_list
+    FROM
+        recent_measurements rm
+    JOIN
+        sensors s ON rm.sensor_id = s.sensor_id
+    WHERE
+        rm.sensor_id = ?
+  `;
+
+  try {
+    pool.query(query, [sensorId], (error, results) => {
+      if (error) {
+        console.error("Error querying the database: ", error);
+        res.status(500).json({ message: "Error querying the database" });
+      } else if (!results.length) {
+        res.status(404).json({ status: "Not found" });
+      } else {
+        // Extract sensor information (assuming it's the same for all measurements)
+        const sensorInfo = results[0];
+
+        // Return measurements in a detailed JSON structure
+        const response = {
+          sensor_id: sensorId,
+          sensor_name: sensorInfo.sensor_name,
+          source: sensorInfo.source,
+          location: {
+            latitude: sensorInfo.latitude,
+            longitude: sensorInfo.longitude,
+            street: sensorInfo.street,
+            zip_code: sensorInfo.zip_code,
+            region: sensorInfo.region,
+          },
+          param_list: sensorInfo.param_list,
+          measurements: results.map((result) => ({
+            parameter: result.parameter,
+            value: Number(result.value).toFixed(
+              result.parameter === "Black C" ? 1 : 0
+            ),
+            unit: result.unit,
+            time: result.time,
+          })),
+        };
+
+        res.status(200).json(response);
+      }
+    });
+  } catch (error) {
+    console.error("Error querying the database: ", error);
+    res.status(500).json({ message: "Error querying the database" });
+  }
+});
