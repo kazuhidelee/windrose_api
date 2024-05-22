@@ -877,7 +877,7 @@ app.get("/latestAll", async (req, res) => {
     return;
   }
 
-  // SQL command to get most recent measurements for all parameters for a specific sensor and join with sensors table
+  // SQL command to get all measurements for a specific sensor and join with sensors table
   const query = `
     SELECT
         rm.value, rm.parameter, rm.unit, rm.time, 
@@ -901,7 +901,32 @@ app.get("/latestAll", async (req, res) => {
       } else {
         // Extract sensor information (assuming it's the same for all measurements)
         const sensorInfo = results[0];
-        // Return measurements in a detailed JSON structure
+
+        // Filter the results to include only the most recent measurement for each parameter
+        const recentMeasurements = {};
+        results.forEach((result) => {
+          const parameter = result.parameter;
+          if (
+            !recentMeasurements[parameter] ||
+            new Date(result.time) > new Date(recentMeasurements[parameter].time)
+          ) {
+            recentMeasurements[parameter] = result;
+          }
+        });
+
+        // Convert the filtered measurements to an array
+        const measurements = Object.values(recentMeasurements).map(
+          (result) => ({
+            parameter: result.parameter,
+            value: Number(result.value).toFixed(
+              result.parameter === "Black C" ? 1 : 0
+            ),
+            unit: result.unit,
+            time: result.time,
+          })
+        );
+
+        // Construct the response object
         const response = {
           results: {
             sensor_id: sensorId,
@@ -915,14 +940,7 @@ app.get("/latestAll", async (req, res) => {
               region: sensorInfo.region,
             },
             param_list: sensorInfo.param_list,
-            measurements: results.map((result) => ({
-              parameter: result.parameter,
-              value: Number(result.value).toFixed(
-                result.parameter === "Black C" ? 1 : 0
-              ),
-              unit: result.unit,
-              time: result.time,
-            })),
+            measurements: measurements,
           },
         };
 
