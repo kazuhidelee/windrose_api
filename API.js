@@ -901,7 +901,6 @@ app.get("/latestAll", async (req, res) => {
       } else {
         // Extract sensor information (assuming it's the same for all measurements)
         const sensorInfo = results[0];
-
         // Return measurements in a detailed JSON structure
         const response = {
           results: {
