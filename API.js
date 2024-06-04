@@ -42,7 +42,7 @@ app.get("/", async (req, res) => {
 // Returns a list of all the parameters we have measurements for in units of µg/m³, ppm, or ppb
 app.get("/parameterList", async (req, res) => {
   const query =
-    "SELECT DISTINCT parameter, unit FROM MRAPID.measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ORDER BY parameter";
+    "SELECT DISTINCT parameter, unit FROM MRAPID.recent_measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ORDER BY parameter";
 
   // create map for parameters and display names
   var displayNames = new Map([
@@ -140,23 +140,15 @@ app.get("/mapData", async (req, res) => {
   }
 
   // SQL command to get most recent measurements for each parameter at every sensor location
-  var query =
-    "SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source FROM MRAPID.recent_measurements t ";
-  query += "INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id ";
+  // SQL command to get most recent measurements for each parameter at every sensor location
+  var query = `
+SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source 
+FROM MRAPID.recent_measurements t
+INNER JOIN MRAPID.sensors ON t.sensor_id = sensors.sensor_id
+WHERE (t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³')
+AND DATE(CONVERT_TZ(t.time, 'UTC', 'America/New_York')) = DATE(CONVERT_TZ(NOW(), 'UTC', 'America/New_York'))
+`;
 
-  var recents =
-    "SELECT parameter, unit, MAX(time) latest_time, sensor_id FROM MRAPID.recent_measurements ";
-  recents +=
-    "WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ";
-  recents += "GROUP BY parameter , sensor_id , unit";
-  query += "JOIN ( " + recents + " ) recents ";
-
-  query +=
-    "ON t.sensor_id = recents.sensor_id AND t.time = recents.latest_time AND t.parameter = recents.parameter ";
-  query +=
-    "AND DATE(CONVERT_TZ(t.time, 'UTC', 'America/New_York')) = DATE(CONVERT_TZ(NOW(), 'UTC', 'America/New_York'))";
-  query +=
-    "WHERE	t.unit='µg/m³' OR t.unit='ppm' OR t.unit='ppb' OR t.unit='particles/cm³'";
   /* SQL query nicely formatted
         SELECT value, t.parameter, t.unit, t.time, t.sensor_id, sensor_name, latitude, longitude, source
         FROM measurements t
