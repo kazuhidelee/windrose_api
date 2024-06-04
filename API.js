@@ -86,6 +86,19 @@ app.get("/parameterList", async (req, res) => {
 
           allParams["results"].push(param);
         }
+        //change allParams so that the element with "name": "pm2.5",
+        //"units": "µg/m³", is first
+        var pm25 = allParams["results"].find(
+          (element) => element.name === "pm2.5"
+        );
+        allParams["results"] = allParams["results"].filter(
+          (element) => element.name !== "pm2.5"
+        );
+        allParams["results"].unshift(pm25);
+        //reset the id of each element
+        allParams["results"].forEach((element, index) => {
+          element.id = index + 1;
+        });
 
         res.status(200).json(allParams);
       }
