@@ -960,7 +960,7 @@ app.get("/latestAll", async (req, res) => {
 });
 
 // Returns interpolated pollutant concentrations using data from the last 4 hours as geojson polygons
-// API link format is "[server]/latest?pollutant=[pollutant]&unit=[unit]&type=[aqi or concentration]". ex: http://localhost:8080/interpolatedMap?pollutant=pm2.5&unit=ug/m3&type=aqi
+// API link format is "[server]/latest?pollutant=[pollutant]&unit=[unit]&type=[AQI or Concentration]". ex: http://localhost:8080/interpolatedMap?pollutant=pm2.5&unit=ug/m3&type=AQI
 // Parameters: Use BC for Black Carbon
 // Units: Use ug/m3 for µg/m³, p/cm3 for particles/cm³, and ppm or ppb for those.
 app.get("/interpolatedMap", async (req, res) => {
@@ -969,7 +969,7 @@ app.get("/interpolatedMap", async (req, res) => {
   else pollutant = req.query.pollutant;
 
   var dataType = "recent_measurements"
-  if (req.query.type == "aqi") dataType = "AQI"
+  if (req.query.type == "AQI") dataType = "AQI"
 
   // Format unit for SQL request
   var unit;
