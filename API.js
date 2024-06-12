@@ -21,8 +21,8 @@ const pool = mysql.createPool({
   password: "mrapid123",
   database: "MRAPID",
   //connect to 34.171.19.205
-  host: "34.171.19.205",
-  //socketPath: "/cloudsql/mrapid:us-central1:mrapid",
+  //host: "34.171.19.205",
+  socketPath: "/cloudsql/mrapid:us-central1:mrapid",
 });
 //make sure connection successful
 pool.getConnection((err, connection) => {
