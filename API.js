@@ -21,8 +21,8 @@ const pool = mysql.createPool({
   password: "mrapid123",
   database: "MRAPID",
   //connect to 34.171.19.205
-  //host: "34.171.19.205",
-  socketPath: "/cloudsql/mrapid:us-central1:mrapid",
+  host: "34.171.19.205",
+  //socketPath: "/cloudsql/mrapid:us-central1:mrapid",
 });
 //make sure connection successful
 pool.getConnection((err, connection) => {
@@ -42,6 +42,16 @@ app.get("/", async (req, res) => {
 
 // Returns a list of all the parameters we have measurements for in units of µg/m³, ppm, or ppb
 app.get("/parameterList", async (req, res) => {
+  const cacheKey = "parameterList";
+
+  // Check if data is in cache
+  const cachedData = myCache.get(cacheKey);
+  if (cachedData) {
+    // Return cached data
+    res.status(200).json(cachedData);
+    return;
+  }
+
   const query =
     "SELECT DISTINCT parameter, unit FROM MRAPID.recent_measurements WHERE unit='µg/m³' OR unit='ppm' OR unit='ppb' OR unit='particles/cm³' ORDER BY parameter";
 
@@ -99,6 +109,9 @@ app.get("/parameterList", async (req, res) => {
         allParams["results"].forEach((element, index) => {
           element.id = index + 1;
         });
+
+        // Store result in cache
+        myCache.set(cacheKey, allParams);
 
         res.status(200).json(allParams);
       }
@@ -968,8 +981,8 @@ app.get("/interpolatedMap", async (req, res) => {
   if (req.query.pollutant == "BC") pollutant = "Black C";
   else pollutant = req.query.pollutant;
 
-  var dataType = "recent_measurements"
-  if (req.query.type == "AQI") dataType = "AQI"
+  var dataType = "recent_measurements";
+  if (req.query.type == "AQI") dataType = "AQI";
 
   // Format unit for SQL request
   var unit;
@@ -980,14 +993,14 @@ app.get("/interpolatedMap", async (req, res) => {
   // time
   const formatOptions = {
     timeZone: "America/Detroit",
-    dateStyle: "short", 
-    hour12: false, 
-    timeStyle: "medium"
+    dateStyle: "short",
+    hour12: false,
+    timeStyle: "medium",
   };
 
   //var currTime = new Intl.DateTimeFormat("en-CA", formatOptions).format(Date.now()).split(',').join('');
   //console.log(currTime)
-  var sub = Date.now() - 14400000;  // subtract 4 hours
+  var sub = Date.now() - 14400000; // subtract 4 hours
   //var sub = Date.now() - 172800000;  // for testing using last 48 hrs
   var minTime = new Intl.DateTimeFormat("en-CA", formatOptions)
     .format(sub)
@@ -1000,10 +1013,10 @@ app.get("/interpolatedMap", async (req, res) => {
     //"SELECT longitude, latitude, t.sensor_id, AVG(t.value) AS avgMeasurement FROM MRAPID.measurements t " +  // for testing
     //"SELECT t.sensor_id, AVG(CASE WHEN t.time > ? THEN t.value ELSE NULL END) AS avgMeasurement FROM MRAPID.recent_measurements t " +
     //"SELECT t.parameter, t.sensor_id, t.value, t.time FROM MRAPID.recent_measurements t " +
-    "LEFT JOIN MRAPID.sensors ON t.sensor_id = MRAPID.sensors.sensor_id " + 
-    "WHERE MRAPID.sensors.longitude > -83.16 && MRAPID.sensors.longitude < -82.85 && MRAPID.sensors.latitude > 42.16 && MRAPID.sensors.latitude < 42.57 AND t.time > ? AND t.parameter = ? AND t.unit = ? " + 
+    "LEFT JOIN MRAPID.sensors ON t.sensor_id = MRAPID.sensors.sensor_id " +
+    "WHERE MRAPID.sensors.longitude > -83.16 && MRAPID.sensors.longitude < -82.85 && MRAPID.sensors.latitude > 42.16 && MRAPID.sensors.latitude < 42.57 AND t.time > ? AND t.parameter = ? AND t.unit = ? " +
     "GROUP BY t.sensor_id, longitude, latitude";
-  
+
   var t = [];
   var x = [
     /* longitude coordinates */
@@ -1023,13 +1036,13 @@ app.get("/interpolatedMap", async (req, res) => {
         // No results
         res.json({ status: "Not found" });
       } else {
-        console.log(results)
+        console.log(results);
         for (var i = 0; i < results.length; ++i) {
           t.push(results[i].avgMeasurement);
           x.push(results[i].longitude);
           y.push(results[i].latitude);
         }
-        console.log(t)
+        console.log(t);
         //console.log(x)
 
         // testing with 13 points
