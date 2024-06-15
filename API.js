@@ -1063,8 +1063,10 @@ app.get("/interpolatedMap", async (req, res) => {
             var newFeature = {
               type: "Feature",
               geometry: {
-                type: "Point",
-                coordinates: [x, y],
+                type: "Polygon",
+                "coordinates": [
+                  [ [x, y], [x+0.001,y], [x+0.001,y+0.001], [x,y+0.001] ]
+                ]
               },
               properties: {
                 pollutant: pred,
@@ -1085,3 +1087,4 @@ app.get("/interpolatedMap", async (req, res) => {
     res.status(5);
   }
 });
+
