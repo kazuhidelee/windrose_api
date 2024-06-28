@@ -20,7 +20,8 @@ const pool = mysql.createPool({
   user: "root",
   password: "mrapid123",
   database: "MRAPID",
-  host: "34.171.19.205",
+  // host: "34.171.19.205",
+  socketPath: "/cloudsql/mrapid:us-central1:mrapid",
 });
 
 
